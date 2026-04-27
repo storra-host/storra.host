@@ -65,6 +65,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <meta name='admaven-placement' content='Bqjs6rdg8' />
+      </head>
       <body className="min-h-full">
         <Script
           id="storra-theme"
