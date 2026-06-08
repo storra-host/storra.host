@@ -28,6 +28,7 @@ import {
 import { DEFAULT_MAX_FILE_SIZE_BYTES } from "@/lib/file-limits";
 import { pollVideoPlaybackReady } from "@/lib/video-ready";
 import { prepareVideoForUpload } from "@/lib/video-client-prep";
+import { DISCORD_INLINE_VIDEO_MAX_BYTES } from "@/lib/video-embed";
 import { buildFileShareUrl, isVideoFile } from "@/lib/video";
 import { cn } from "@/lib/utils";
 
@@ -515,7 +516,9 @@ export function UploadForm({
             </div>
             {uploadedFileId && file && isVideoFile(file.name, file.type || null) ? (
               <p className="text-[0.65rem] text-slate-500 dark:text-zinc-500">
-                Paste this link in Discord to embed the video inline. No password on the link.
+                {file.size > DISCORD_INLINE_VIDEO_MAX_BYTES
+                  ? "Discord shows a thumbnail preview for clips over 50 MB. Shorter clips embed as an inline player."
+                  : "Paste this link in Discord to embed the video inline."}
               </p>
             ) : null}
           </div>

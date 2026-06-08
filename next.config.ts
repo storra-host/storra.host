@@ -16,6 +16,9 @@ const nextConfig: NextConfig = {
   env: {
     STORRA_GIT_COMMIT: storraGitShortForBuild() || "unknown",
   },
+  // Block streaming until generateMetadata resolves for link-preview bots.
+  htmlLimitedBots:
+    /Discordbot|discordbot|Twitterbot|facebookexternalhit|LinkedInBot|Slackbot|TelegramBot|WhatsApp/i,
   serverExternalPackages: ["@aws-sdk/client-s3"],
   experimental: {
     serverActions: {

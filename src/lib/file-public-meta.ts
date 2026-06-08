@@ -7,7 +7,7 @@ import {
   videoEmbedPath,
   videoWatchPath,
 } from "@/lib/video";
-import { canDiscordVideoEmbed } from "@/lib/video-embed";
+import { canDiscordInlineVideo, canDiscordVideoEmbed } from "@/lib/video-embed";
 
 export type PublicFileMeta = {
   id: string;
@@ -28,6 +28,7 @@ export type PublicFileMeta = {
   watchUrl: string;
   embedUrl: string;
   discordEmbeddable: boolean;
+  discordInlineVideo: boolean;
   hasPoster: boolean;
 };
 
@@ -68,16 +69,18 @@ export function toPublicFileMeta(row: DbRow): PublicFileMeta {
       })
     : false;
 
-  const discordEmbeddable = isVideo
-    ? canDiscordVideoEmbed({
-        isVideo,
-        encryptionMode: row.encryption_mode ?? "legacy_server",
-        requiresPassword: Boolean(row.password_key_wrap),
-        embedSupported,
-      })
-    : false;
+  const baseMeta = {
+    isVideo,
+    encryptionMode: (row.encryption_mode ?? "legacy_server") as
+      | "legacy_server"
+      | "e2ee_client",
+    requiresPassword: Boolean(row.password_key_wrap),
+    embedSupported,
+  };
 
-  return {
+  const discordEmbeddable = isVideo ? canDiscordVideoEmbed(baseMeta) : false;
+
+  const publicMeta: PublicFileMeta = {
     id: row.id,
     size: String(row.size),
     filename,
@@ -96,6 +99,10 @@ export function toPublicFileMeta(row: DbRow): PublicFileMeta {
     watchUrl: videoWatchPath(row.id),
     embedUrl: videoEmbedPath(row.id),
     discordEmbeddable,
+    discordInlineVideo: false,
     hasPoster: Boolean(row.poster_storage_key),
   };
+
+  publicMeta.discordInlineVideo = canDiscordInlineVideo(publicMeta);
+  return publicMeta;
 }
