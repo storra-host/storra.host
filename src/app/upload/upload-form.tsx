@@ -26,6 +26,8 @@ import {
   generateDataKeyAndIv,
 } from "@/lib/client-file-crypto";
 import { DEFAULT_MAX_FILE_SIZE_BYTES } from "@/lib/file-limits";
+import { captureVideoThumbnail } from "@/lib/video-thumbnail";
+import { buildFileShareUrl, isVideoFile } from "@/lib/video";
 import { cn } from "@/lib/utils";
 
 type Step = "pick" | "upload" | "done";
@@ -142,6 +144,8 @@ export function UploadForm({
   const [step, setStep] = useState<Step>("pick");
   const [progress, setProgress] = useState(0);
   const [link, setLink] = useState<string | null>(null);
+  const [uploadedFileId, setUploadedFileId] = useState<string | null>(null);
+  const [videoThumbnail, setVideoThumbnail] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [drag, setDrag] = useState(false);
   const [accessPassword, setAccessPassword] = useState("");
@@ -300,11 +304,19 @@ export function UploadForm({
       setProgress(100);
       const origin =
         typeof window !== "undefined" ? window.location.origin : "";
-      const linkValue =
-        resolvedMode === "e2ee_client"
-          ? `${origin}/?f=${fileId}#k=${encodeURIComponent(dataKey)}`
-          : `${origin}/?f=${fileId}`;
+      const isVideo = isVideoFile(file.name, file.type || null);
+      const linkValue = buildFileShareUrl(origin, fileId, {
+        isVideo,
+        e2eeKey: resolvedMode === "e2ee_client" ? dataKey : null,
+      });
       setLink(linkValue);
+      setUploadedFileId(fileId);
+      if (isVideoFile(file.name, file.type || null)) {
+        const thumb = await captureVideoThumbnail(file);
+        setVideoThumbnail(thumb);
+      } else {
+        setVideoThumbnail(null);
+      }
       setStep("done");
       toast.success("Upload complete");
     } catch (e) {
@@ -343,6 +355,9 @@ export function UploadForm({
   const again = () => {
     setFile(null);
     setLink(null);
+    setUploadedFileId(null);
+    setVideoThumbnail(null);
+    setCopied(false);
     setStep("pick");
     setProgress(0);
     setAccessPassword("");
@@ -360,33 +375,53 @@ export function UploadForm({
       {step === "done" && link ? (
         <div className="flex w-full flex-col items-center space-y-2 text-center">
           <p className="text-xs text-emerald-600 dark:text-emerald-400/90">
-            {copied ? "Link copied" : "Your link"}
+            {copied ? "Copied" : "Upload complete"}
           </p>
           {link.includes("#k=") ? (
             <p className="text-[0.65rem] text-amber-700 dark:text-amber-300">
               This link contains the decryption key. Share only with trusted recipients.
             </p>
           ) : null}
-          <div className="flex w-full gap-1.5">
-            <Input
-              readOnly
-              value={link}
-              className="h-8 min-w-0 flex-1 font-mono text-xs text-left"
-            />
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="secondary"
-              className="shrink-0"
-              onClick={copy}
-              aria-label="Copy link"
-            >
-              {copied ? (
-                <Check className="h-3.5 w-3.5" />
-              ) : (
-                <Copy className="h-3.5 w-3.5" />
-              )}
-            </Button>
+          {videoThumbnail ? (
+            <div className="w-full overflow-hidden rounded-lg border border-slate-200/90 dark:border-zinc-700/60">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={videoThumbnail}
+                alt="Video preview"
+                className="aspect-video w-full object-cover"
+              />
+            </div>
+          ) : null}
+          <div className="w-full space-y-1 text-left">
+            <label className="text-xs text-slate-600 dark:text-zinc-400">
+              Your link
+            </label>
+            <div className="flex w-full gap-1.5">
+              <Input
+                readOnly
+                value={link}
+                className="h-8 min-w-0 flex-1 font-mono text-xs text-left"
+              />
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="secondary"
+                className="shrink-0"
+                onClick={() => void copy()}
+                aria-label="Copy link"
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </div>
+            {uploadedFileId && file && isVideoFile(file.name, file.type || null) ? (
+              <p className="text-[0.65rem] text-slate-500 dark:text-zinc-500">
+                Opens a video player in the browser. Paste in Discord to embed when supported.
+              </p>
+            ) : null}
           </div>
           <p className="text-center">
             <button
@@ -442,7 +477,7 @@ export function UploadForm({
               onDragLeave={() => setDrag(false)}
               onDrop={onDrop}
               className={cn(
-                "rounded-lg border border-dashed border-slate-300 bg-slate-50/80 transition-colors dark:border-zinc-600/60 dark:bg-zinc-950/20",
+                "rounded-lg border border-dashed border-slate-300 bg-slate-50/80 transition-[border-color,background-color] duration-150 ease-out dark:border-zinc-600/60 dark:bg-zinc-950/20",
                 drag &&
                   "border-sky-500/50 bg-sky-50/90 dark:border-zinc-500/80 dark:bg-zinc-900/30"
               )}
@@ -624,7 +659,7 @@ export function UploadForm({
                         <button
                           type="button"
                           className={cn(
-                            "rounded-md border px-2 py-1.5 text-left text-xs transition-colors",
+                            "rounded-md border px-2 py-1.5 text-left text-xs transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.98] motion-reduce:active:scale-100",
                             encryptionMode === "e2ee_client"
                               ? "border-sky-500/60 bg-sky-50/80 text-sky-900 dark:border-sky-500/50 dark:bg-sky-950/30 dark:text-sky-100"
                               : "border-slate-200/90 bg-white/80 text-slate-700 dark:border-zinc-700/60 dark:bg-zinc-950/30 dark:text-zinc-300"
@@ -636,7 +671,7 @@ export function UploadForm({
                         <button
                           type="button"
                           className={cn(
-                            "rounded-md border px-2 py-1.5 text-left text-xs transition-colors",
+                            "rounded-md border px-2 py-1.5 text-left text-xs transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.98] motion-reduce:active:scale-100",
                             encryptionMode === "legacy_server"
                               ? "border-sky-500/60 bg-sky-50/80 text-sky-900 dark:border-sky-500/50 dark:bg-sky-950/30 dark:text-sky-100"
                               : "border-slate-200/90 bg-white/80 text-slate-700 dark:border-zinc-700/60 dark:bg-zinc-950/30 dark:text-zinc-300"

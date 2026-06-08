@@ -4,6 +4,8 @@ import { deleteObject, headObjectContentLength } from "@/lib/r2";
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
 import { AUTH_TAG_LENGTH } from "@/lib/server-crypto";
 import { verifyFinalizeToken } from "@/lib/upload-finalize-token";
+import { isVideoFile } from "@/lib/video";
+import { scheduleVideoTranscode } from "@/lib/video-transcode";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
   const supabase = getSupabase();
   const { data: row, error: fetchErr } = await supabase
     .from("files")
-    .select("id, storage_key, iv, upload_complete, wrapped_file_key, mime_type")
+    .select("id, storage_key, iv, upload_complete, wrapped_file_key, mime_type, filename, encryption_mode")
     .eq("id", fileId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -96,6 +98,13 @@ export async function POST(request: Request) {
 
   if (updateErr) {
     return jsonError(500, "db", "Could not finalize upload");
+  }
+
+  if (
+    isVideoFile(row.filename, row.mime_type) &&
+    row.encryption_mode !== "e2ee_client"
+  ) {
+    scheduleVideoTranscode(fileId);
   }
 
   return NextResponse.json({ fileId });

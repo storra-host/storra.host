@@ -54,7 +54,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         "dark:text-zinc-400 dark:hover:bg-transparent dark:active:bg-transparent",
         "focus:bg-transparent focus:outline-none focus:ring-0",
         "focus-visible:bg-transparent focus-visible:ring-0",
-        "transition-[color,opacity] hover:text-slate-900 dark:hover:text-zinc-100",
+        "transition-[color,opacity,transform] duration-150 ease-out active:scale-[0.97] motion-reduce:active:scale-100 hover:text-slate-900 dark:hover:text-zinc-100",
         className
       )}
       onClick={toggle}

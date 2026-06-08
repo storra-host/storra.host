@@ -16,22 +16,22 @@ export function LegalDocumentLayout({
   return (
     <div
       className={cn(
-        "w-full min-w-0 pb-12 text-left xl:grid xl:max-w-none xl:grid-cols-[minmax(0,1fr),11.5rem] xl:items-start xl:gap-x-8",
+        "w-full min-w-0 pb-12 text-left lg:flex lg:items-start lg:gap-10 xl:gap-12",
         className
       )}
     >
-      <div className="min-w-0 max-w-prose">
+      <div className="min-w-0 flex-1 lg:max-w-prose">
         {header}
-        <div className="mb-6 xl:hidden">
-          <LegalDocumentToc sections={sections} />
+        <div className="mb-8 lg:hidden">
+          <LegalDocumentToc sections={sections} variant="inline" />
         </div>
         {children}
       </div>
       <aside
-        className="sticky top-3 z-[1] hidden h-fit w-full max-w-[12rem] justify-self-end self-start xl:top-4 xl:block"
+        className="sticky top-20 z-[1] hidden w-[11.5rem] shrink-0 pt-1 lg:block"
         aria-label="Table of contents"
       >
-        <LegalDocumentToc sections={sections} />
+        <LegalDocumentToc sections={sections} variant="sidebar" />
       </aside>
     </div>
   );

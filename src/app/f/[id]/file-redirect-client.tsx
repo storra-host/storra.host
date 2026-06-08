@@ -9,12 +9,32 @@ export function FileIdRedirect() {
 
   useEffect(() => {
     if (!id) return;
-    try {
-      const h = window.location.hash ?? "";
-      const u = new URL(window.location.origin + "/");
-      u.searchParams.set("f", id);
-      window.location.replace(u.pathname + u.search + h);
-    } catch {}
+    let cancelled = false;
+    (async () => {
+      try {
+        const h = window.location.hash ?? "";
+        const r = await fetch(`/api/files/${id}?meta=1`);
+        if (cancelled) return;
+        if (r.ok) {
+          const meta = (await r.json()) as { isVideo?: boolean };
+          if (meta.isVideo) {
+            window.location.replace(`/v/${id}${h}`);
+            return;
+          }
+        }
+        const u = new URL(window.location.origin + "/");
+        u.searchParams.set("f", id);
+        window.location.replace(u.pathname + u.search + h);
+      } catch {
+        if (!cancelled) {
+          const h = window.location.hash ?? "";
+          window.location.replace(`/?f=${id}${h}`);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (!id) {

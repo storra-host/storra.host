@@ -1,9 +1,11 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DownloadView } from "@/app/f/[id]/download-view";
 import { UploadForm } from "@/app/upload/upload-form";
 import { BrandTitle } from "./brand-title";
+import { Loader2 } from "lucide-react";
 import Link from "next/link";
 
 const linkClass =
@@ -13,7 +15,49 @@ type SpaHomeProps = { maxFileLabel: string; maxFileBytes: number };
 
 export function SpaHome({ maxFileLabel, maxFileBytes }: SpaHomeProps) {
   const sp = useSearchParams();
+  const router = useRouter();
   const f = sp.get("f");
+  const [fileReady, setFileReady] = useState(!f);
+
+  useEffect(() => {
+    if (!f) {
+      setFileReady(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/files/${f}?meta=1`);
+        if (!r.ok) {
+          if (!cancelled) setFileReady(true);
+          return;
+        }
+        const meta = (await r.json()) as { isVideo?: boolean };
+        if (meta.isVideo) {
+          const hash = window.location.hash ?? "";
+          router.replace(`/v/${f}${hash}`);
+          return;
+        }
+        if (!cancelled) setFileReady(true);
+      } catch {
+        if (!cancelled) setFileReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [f, router]);
+
+  if (f && !fileReady) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center py-12">
+        <p className="flex items-center gap-2 text-sm text-zinc-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading…
+        </p>
+      </div>
+    );
+  }
 
   if (f) {
     return (

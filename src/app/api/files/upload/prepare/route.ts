@@ -6,6 +6,7 @@ import { sanitizeOriginalFilename } from "@/lib/filename-sanitize";
 import { hashFilePassword } from "@/lib/file-password";
 import { ivToRecord, randomIvBuffer, wrapDataKey } from "@/lib/server-crypto";
 import { issueFinalizeToken } from "@/lib/upload-finalize-token";
+import { resolveMimeType } from "@/lib/video";
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
@@ -85,8 +86,10 @@ export async function POST(request: Request) {
   }
 
   const supabase = getSupabase();
-  const resolvedMimeType =
-    m.mimeType != null && m.mimeType !== "" ? m.mimeType : null;
+  const resolvedMimeType = resolveMimeType(
+    displayName,
+    m.mimeType != null && m.mimeType !== "" ? m.mimeType : null
+  );
 
   const { error: insertErr } = await supabase.from("files").insert({
     id: fileId,

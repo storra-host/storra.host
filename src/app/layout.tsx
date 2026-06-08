@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import Script from "next/script";
 import "./globals.css";
 import { AppToaster } from "@/components/site/app-toaster";
+import { EmbedShell, WatchShell } from "@/components/site/watch-shell";
 import { SiteShell } from "@/components/site/shell";
 import { THEME_INIT } from "@/components/site/theme-script";
 
@@ -54,11 +56,36 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+function AppShell({
+  children,
+  pathname,
+  embedMode,
+}: {
+  children: React.ReactNode;
+  pathname: string;
+  embedMode: boolean;
+}) {
+  if (pathname.startsWith("/e/") || embedMode) {
+    return <EmbedShell>{children}</EmbedShell>;
+  }
+  if (pathname.startsWith("/v/")) {
+    return <WatchShell>{children}</WatchShell>;
+  }
+  return (
+    <SiteShell showBugReport={Boolean(process.env.DISCORD_WEBHOOK_URL)}>
+      {children}
+    </SiteShell>
+  );
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const h = await headers();
+  const pathname = h.get("x-pathname") ?? "";
+  const embedMode = h.get("x-embed-mode") === "1";
   return (
     <html
       lang="en"
@@ -74,9 +101,9 @@ export default function RootLayout({
           strategy="beforeInteractive"
           dangerouslySetInnerHTML={{ __html: THEME_INIT }}
         />
-        <SiteShell showBugReport={Boolean(process.env.DISCORD_WEBHOOK_URL)}>
+        <AppShell pathname={pathname} embedMode={embedMode}>
           {children}
-        </SiteShell>
+        </AppShell>
         <AppToaster />
       </body>
     </html>

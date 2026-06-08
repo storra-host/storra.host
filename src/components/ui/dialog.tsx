@@ -35,7 +35,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border p-4 shadow-2xl duration-200",
+        "fixed left-1/2 top-1/2 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border p-4 shadow-2xl duration-200 ease-out",
         "border-slate-200/90 bg-zinc-50 text-slate-900",
         "ring-1 ring-slate-900/[0.04] dark:border-zinc-800/90 dark:bg-zinc-950 dark:text-zinc-100 dark:ring-white/[0.06]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
@@ -47,7 +47,7 @@ const DialogContent = React.forwardRef<
       <DialogClose
         className={cn(
           "absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center rounded-md p-0",
-          "text-slate-500 transition-colors hover:bg-slate-200/90 hover:text-slate-900",
+          "text-slate-500 transition-[color,background-color,transform] duration-150 ease-out hover:bg-slate-200/90 hover:text-slate-900 active:scale-[0.97] motion-reduce:active:scale-100",
           "focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/30",
           "dark:text-zinc-500 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-200 dark:focus-visible:ring-zinc-500/25"
         )}

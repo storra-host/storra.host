@@ -25,7 +25,7 @@ export function SiteShell({
           <ThemeToggle />
         </div>
         <main className="flex min-h-0 w-full flex-1 flex-col items-center justify-start overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-          <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
+          <div className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col">
             {children}
           </div>
         </main>
