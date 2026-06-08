@@ -379,6 +379,13 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
         />
       )}
 
+      {!minimal && meta.encryptionMode === "e2ee_client" ? (
+        <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+          Discord cannot embed encrypted videos (the key in <code className="text-amber-100">#k=</code> is
+          never sent to Discord). Re-upload the video to get a Streamable-style inline embed.
+        </p>
+      ) : null}
+
       {!minimal && phase === "ready" ? (
         <div className="mt-4 flex flex-wrap items-start justify-between gap-4 px-1 sm:mt-5">
           <div className="min-w-0 flex-1">

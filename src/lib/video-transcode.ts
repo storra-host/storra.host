@@ -105,7 +105,9 @@ export async function runVideoTranscodeIfNeeded(fileId: string): Promise<void> {
   const work = await mkdtemp(join(tmpdir(), "storra-vid-"));
   const inputPath = join(work, "input.bin");
   const outputPath = join(work, "playback.mp4");
+  const posterPath = join(work, "poster.jpg");
   const transcodedKey = `obj/${fileId}/playback.mp4`;
+  const posterKey = `obj/${fileId}/poster.jpg`;
 
   try {
     await writeFile(inputPath, plain);
@@ -140,12 +142,41 @@ export async function runVideoTranscodeIfNeeded(fileId: string): Promise<void> {
     const out = await readFile(outputPath);
     if (out.length < 1) throw new Error("empty transcode output");
     await putObjectBuffer(transcodedKey, out);
+
+    let savedPosterKey: string | null = null;
+    try {
+      await execFileAsync(
+        "ffmpeg",
+        [
+          "-y",
+          "-i",
+          outputPath,
+          "-ss",
+          "00:00:00.500",
+          "-vframes",
+          "1",
+          "-q:v",
+          "2",
+          posterPath,
+        ],
+        { timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }
+      );
+      const poster = await readFile(posterPath);
+      if (poster.length > 0) {
+        await putObjectBuffer(posterKey, poster, "image/jpeg");
+        savedPosterKey = posterKey;
+      }
+    } catch {
+      /* poster is optional */
+    }
+
     await supabase
       .from("files")
       .update({
         transcoded_storage_key: transcodedKey,
         playback_mime_type: "video/mp4",
         transcode_status: "ready" satisfies TranscodeStatus,
+        poster_storage_key: savedPosterKey,
       })
       .eq("id", fileId);
   } catch {

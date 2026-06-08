@@ -6,7 +6,7 @@ import { sanitizeOriginalFilename } from "@/lib/filename-sanitize";
 import { hashFilePassword } from "@/lib/file-password";
 import { ivToRecord, randomIvBuffer, wrapDataKey } from "@/lib/server-crypto";
 import { issueFinalizeToken } from "@/lib/upload-finalize-token";
-import { resolveMimeType } from "@/lib/video";
+import { isVideoFile, resolveMimeType } from "@/lib/video";
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { nanoid } from "nanoid";
@@ -52,7 +52,18 @@ export async function POST(request: Request) {
 
   const fileId = nanoid(24);
   const storageKey = `obj/${fileId}`;
-  const encryptionMode = m.encryptionMode ?? "e2ee_client";
+  const displayNameEarly = sanitizeOriginalFilename(
+    m.originalName ?? "upload",
+    "upload"
+  );
+  const resolvedMimeEarly = resolveMimeType(
+    displayNameEarly,
+    m.mimeType != null && m.mimeType !== "" ? m.mimeType : null
+  );
+  const isVideoUpload = isVideoFile(displayNameEarly, resolvedMimeEarly);
+  const encryptionMode = isVideoUpload
+    ? "legacy_server"
+    : (m.encryptionMode ?? "e2ee_client");
   const isE2EE = encryptionMode === "e2ee_client";
 
   let ivRecord: string;

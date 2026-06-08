@@ -3,6 +3,8 @@ import { getObjectBuffer } from "@/lib/r2";
 import { getEnv } from "@/lib/env";
 import { verifyFilePassword } from "@/lib/file-password";
 import { AUTH_TAG_LENGTH, decryptBuffer, getFileDecryptionKey } from "@/lib/server-crypto";
+import { canDiscordVideoEmbed } from "@/lib/video-embed";
+import { isEmbedPlaybackSupported, isVideoFile, type TranscodeStatus } from "@/lib/video";
 import { NextResponse } from "next/server";
 
 export type FileRow = {
@@ -266,6 +268,28 @@ export async function serveFileById(
     ? after.playback_mime_type || "video/mp4"
     : after.mime_type || "application/octet-stream";
 
+  const transcodeStatus = (after.transcode_status ?? "none") as TranscodeStatus;
+  const isVideo = isVideoFile(after.filename, after.mime_type);
+  const embedSupported = isEmbedPlaybackSupported({
+    filename: after.filename,
+    mimeType: after.mime_type,
+    playbackMimeType: after.playback_mime_type,
+    transcodeStatus,
+  });
+  const discordEmbeddable =
+    preview &&
+    inline &&
+    canDiscordVideoEmbed({
+      isVideo,
+      encryptionMode: mode,
+      requiresPassword: Boolean(file.password_key_wrap),
+      embedSupported,
+    });
+
+  const previewCache = discordEmbeddable
+    ? "public, max-age=86400, immutable"
+    : "private, max-age=3600";
+
   const range = parseRange(request.headers.get("range"), plain.length);
   if (range === "invalid") {
     return withCors(
@@ -292,7 +316,7 @@ export async function serveFileById(
         "Content-Range": `bytes ${range.start}-${range.end}/${plain.length}`,
         "Accept-Ranges": "bytes",
         "Content-Disposition": buildContentDisposition(after, inline),
-        "Cache-Control": preview ? "private, max-age=3600" : "no-store",
+        "Cache-Control": preview ? previewCache : "no-store",
         "X-Encryption-Mode": "legacy_server",
       },
     });
@@ -306,7 +330,7 @@ export async function serveFileById(
       "Content-Length": String(plain.length),
       "Accept-Ranges": "bytes",
       "Content-Disposition": buildContentDisposition(after, inline),
-      "Cache-Control": preview ? "private, max-age=3600" : "no-store",
+      "Cache-Control": preview ? previewCache : "no-store",
       "X-Encryption-Mode": "legacy_server",
     },
   });

@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
 import { VideoWatchView } from "@/components/video/video-watch-view";
 import { fetchPublicFileMeta } from "@/lib/file-server-meta";
+import {
+  buildDiscordWatchTitle,
+  canDiscordVideoEmbed,
+  discordPosterUrl,
+  discordStreamUrl,
+} from "@/lib/video-embed";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -24,34 +30,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const siteUrl = siteOrigin();
-  const title = meta.filename?.trim() || "Video";
+  const title = buildDiscordWatchTitle(meta.filename);
   const pageUrl = `${siteUrl}${meta.watchUrl}`;
-  const description = `Watch ${title} on storra.host`;
-  const poster = `${siteUrl}/banner.png`;
+  const description = `Watch ${meta.filename?.trim() || "video"} on storra.host`;
+  const fallbackPoster = `${siteUrl}/banner.png`;
+  const embeddable = canDiscordVideoEmbed(meta);
+  const streamUrl = embeddable ? discordStreamUrl(siteUrl, id) : undefined;
+  const posterUrl = embeddable && meta.hasPoster
+    ? discordPosterUrl(siteUrl, id)
+    : fallbackPoster;
 
-  const canDiscordVideo =
-    meta.encryptionMode === "legacy_server" &&
-    !meta.requiresPassword &&
-    meta.embedSupported;
-
-  const streamUrl = canDiscordVideo
-    ? `${siteUrl}/api/files/${id}?preview=1&inline=1`
-    : undefined;
+  const videoWidth = 1280;
+  const videoHeight = 720;
 
   return {
     title,
     description,
     openGraph: {
-      type: "video.other",
+      type: embeddable ? "video.other" : "website",
       siteName: "storra.host",
       title,
       description,
       url: pageUrl,
       images: [
         {
-          url: poster,
-          width: 1200,
-          height: 630,
+          url: posterUrl,
+          width: videoWidth,
+          height: videoHeight,
           alt: title,
         },
       ],
@@ -61,9 +66,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
               {
                 url: streamUrl,
                 secureUrl: streamUrl,
-                type: meta.playbackMimeType ?? "video/mp4",
-                width: 1280,
-                height: 720,
+                type: "video/mp4",
+                width: videoWidth,
+                height: videoHeight,
               },
             ],
           }
@@ -73,15 +78,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       card: streamUrl ? "player" : "summary_large_image",
       title,
       description,
-      images: [poster],
+      images: [posterUrl],
     },
     other: streamUrl
       ? {
+          "og:video": streamUrl,
           "og:video:url": streamUrl,
           "og:video:secure_url": streamUrl,
-          "og:video:type": meta.playbackMimeType ?? "video/mp4",
-          "og:video:width": "1280",
-          "og:video:height": "720",
+          "og:video:type": "video/mp4",
+          "og:video:width": String(videoWidth),
+          "og:video:height": String(videoHeight),
+          "theme-color": "#18181b",
         }
       : undefined,
   };

@@ -1,6 +1,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { toPublicFileMeta } from "@/lib/file-public-meta";
 import { serveFileById } from "@/lib/file-serve";
+import { isEmbedCrawler } from "@/lib/embed-crawler";
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
 import { NextResponse } from "next/server";
 
@@ -24,7 +25,7 @@ async function getMetadataResponse(request: Request, id: string) {
   const { data: file, error } = await supabase
     .from("files")
     .select(
-      "id, size, mime_type, filename, iv, expires_at, max_downloads, download_count, view_count, upload_complete, password_key_wrap, encryption_mode, transcode_status, playback_mime_type"
+      "id, size, mime_type, filename, iv, expires_at, max_downloads, download_count, view_count, upload_complete, password_key_wrap, encryption_mode, transcode_status, playback_mime_type, poster_storage_key"
     )
     .eq("id", id)
     .is("deleted_at", null)
@@ -52,13 +53,15 @@ export async function GET(
     return getMetadataResponse(request, id);
   }
 
-  const ip = getClientKey(request);
-  const rl = await checkRateLimit("fileRead", ip);
-  if (!rl.allowed) {
-    return jsonError(429, "rate_limited", "Too many requests");
-  }
-
   const preview = u.searchParams.get("preview") === "1";
+
+  if (!isEmbedCrawler(request) || !preview) {
+    const ip = getClientKey(request);
+    const rl = await checkRateLimit("fileRead", ip);
+    if (!rl.allowed) {
+      return jsonError(429, "rate_limited", "Too many requests");
+    }
+  }
   const inline = u.searchParams.get("inline") === "1" || preview;
   const cors = u.searchParams.get("cors") === "1" || preview;
 

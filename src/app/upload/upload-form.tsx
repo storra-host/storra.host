@@ -441,7 +441,7 @@ export function UploadForm({
             </div>
             {uploadedFileId && file && isVideoFile(file.name, file.type || null) ? (
               <p className="text-[0.65rem] text-slate-500 dark:text-zinc-500">
-                Opens a video player in the browser. Paste in Discord to embed when supported.
+                Paste this link in Discord to embed the video inline. No password on the link.
               </p>
             ) : null}
           </div>
@@ -684,8 +684,9 @@ export function UploadForm({
                       <div className="grid grid-cols-1 gap-1.5">
                         <button
                           type="button"
+                          disabled={Boolean(file && isVideoFile(file.name, file.type || null))}
                           className={cn(
-                            "rounded-md border px-2 py-1.5 text-left text-xs transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.98] motion-reduce:active:scale-100",
+                            "rounded-md border px-2 py-1.5 text-left text-xs transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50",
                             encryptionMode === "e2ee_client"
                               ? "border-sky-500/60 bg-sky-50/80 text-sky-900 dark:border-sky-500/50 dark:bg-sky-950/30 dark:text-sky-100"
                               : "border-slate-200/90 bg-white/80 text-slate-700 dark:border-zinc-700/60 dark:bg-zinc-950/30 dark:text-zinc-300"
@@ -711,8 +712,8 @@ export function UploadForm({
                       </div>
                       {file && isVideoFile(file.name, file.type || null) ? (
                         <p className="text-[0.65rem] leading-snug text-slate-500 dark:text-zinc-500">
-                          Videos use streaming mode by default so the file is optimized before you share the link.
-                          E2EE videos must download and decrypt in the browser before playing.
+                          Videos always use streaming mode so Discord can embed them inline (like Streamable).
+                          E2EE is not available for video uploads.
                         </p>
                       ) : null}
                     </div>

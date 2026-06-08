@@ -6,7 +6,7 @@ export async function fetchPublicFileMeta(fileId: string): Promise<PublicFileMet
   const { data: file, error } = await supabase
     .from("files")
     .select(
-      "id, size, mime_type, filename, iv, expires_at, max_downloads, download_count, view_count, upload_complete, password_key_wrap, encryption_mode, transcode_status, playback_mime_type"
+      "id, size, mime_type, filename, iv, expires_at, max_downloads, download_count, view_count, upload_complete, password_key_wrap, encryption_mode, transcode_status, playback_mime_type, poster_storage_key"
     )
     .eq("id", fileId)
     .is("deleted_at", null)

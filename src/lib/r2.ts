@@ -22,7 +22,11 @@ export function getR2Client() {
   return client;
 }
 
-export async function putObjectBuffer(key: string, body: Buffer) {
+export async function putObjectBuffer(
+  key: string,
+  body: Buffer,
+  contentType = "application/octet-stream"
+) {
   const cfg = getR2Config();
   const c = getR2Client();
   await c.send(
@@ -31,7 +35,7 @@ export async function putObjectBuffer(key: string, body: Buffer) {
       Key: key,
       Body: body,
       ContentLength: body.length,
-      ContentType: "application/octet-stream",
+      ContentType: contentType,
     })
   );
 }

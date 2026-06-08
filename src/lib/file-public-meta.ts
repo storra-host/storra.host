@@ -7,6 +7,7 @@ import {
   videoEmbedPath,
   videoWatchPath,
 } from "@/lib/video";
+import { canDiscordVideoEmbed } from "@/lib/video-embed";
 
 export type PublicFileMeta = {
   id: string;
@@ -26,6 +27,8 @@ export type PublicFileMeta = {
   transcodeStatus: TranscodeStatus;
   watchUrl: string;
   embedUrl: string;
+  discordEmbeddable: boolean;
+  hasPoster: boolean;
 };
 
 type DbRow = {
@@ -42,6 +45,7 @@ type DbRow = {
   encryption_mode?: "legacy_server" | "e2ee_client";
   transcode_status?: string | null;
   playback_mime_type?: string | null;
+  poster_storage_key?: string | null;
 };
 
 export function toPublicFileMeta(row: DbRow): PublicFileMeta {
@@ -64,6 +68,15 @@ export function toPublicFileMeta(row: DbRow): PublicFileMeta {
       })
     : false;
 
+  const discordEmbeddable = isVideo
+    ? canDiscordVideoEmbed({
+        isVideo,
+        encryptionMode: row.encryption_mode ?? "legacy_server",
+        requiresPassword: Boolean(row.password_key_wrap),
+        embedSupported,
+      })
+    : false;
+
   return {
     id: row.id,
     size: String(row.size),
@@ -82,5 +95,7 @@ export function toPublicFileMeta(row: DbRow): PublicFileMeta {
     transcodeStatus,
     watchUrl: videoWatchPath(row.id),
     embedUrl: videoEmbedPath(row.id),
+    discordEmbeddable,
+    hasPoster: Boolean(row.poster_storage_key),
   };
 }
