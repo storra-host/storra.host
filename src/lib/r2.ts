@@ -64,26 +64,66 @@ export async function getObjectBuffer(
   return Buffer.concat(chunks);
 }
 
+function bodyToWebStream(body: unknown): ReadableStream<Uint8Array> {
+  if (
+    !body ||
+    typeof (body as { transformToWebStream?: () => ReadableStream }).transformToWebStream !==
+      "function"
+  ) {
+    throw new Error("R2 response body missing stream");
+  }
+  return (
+    body as { transformToWebStream: () => ReadableStream<Uint8Array> }
+  ).transformToWebStream();
+}
+
 export async function getObjectWebStream(
-  key: string
-): Promise<{ stream: ReadableStream<Uint8Array>; contentLength?: number }> {
+  key: string,
+  range?: { start: number; end: number }
+): Promise<{
+  stream: ReadableStream<Uint8Array>;
+  contentLength?: number;
+  contentRange?: string;
+  statusCode: 200 | 206;
+}> {
   const cfg = getR2Config();
   const c = getR2Client();
   const res = await c.send(
-    new GetObjectCommand({ Bucket: cfg.bucket, Key: key })
+    new GetObjectCommand({
+      Bucket: cfg.bucket,
+      Key: key,
+      ...(range
+        ? { Range: `bytes=${range.start}-${range.end}` }
+        : {}),
+    })
   );
   const len = res.ContentLength;
-  const body = res.Body;
-  if (!body || typeof (body as { transformToWebStream?: () => ReadableStream }).transformToWebStream !== "function") {
-    throw new Error("R2 response body missing stream");
-  }
-  const stream = (
-    body as { transformToWebStream: () => ReadableStream<Uint8Array> }
-  ).transformToWebStream();
+  const statusCode = res.$metadata.httpStatusCode === 206 ? 206 : 200;
   return {
-    stream,
+    stream: bodyToWebStream(res.Body),
     contentLength: len ?? undefined,
+    contentRange: res.ContentRange,
+    statusCode,
   };
+}
+
+export async function getObjectRange(
+  key: string,
+  start: number,
+  end: number
+): Promise<{
+  stream: ReadableStream<Uint8Array>;
+  contentLength: number;
+  contentRange?: string;
+}> {
+  const { stream, contentLength, contentRange } = await getObjectWebStream(key, {
+    start,
+    end,
+  });
+  if (contentLength == null) {
+    throw new Error("R2 range response missing length");
+  }
+  return { stream, contentLength, contentRange };
 }
 
 export async function deleteObject(key: string) {
@@ -96,15 +136,26 @@ export async function deleteObject(key: string) {
 
 const PRESIGN_TTL_SEC = 15 * 60;
 
-export async function presignedPutObjectUrl(key: string): Promise<string> {
+export async function presignedPutObjectUrl(
+  key: string,
+  contentType = "application/octet-stream"
+): Promise<string> {
   const cfg = getR2Config();
   const c = getR2Client();
   const command = new PutObjectCommand({
     Bucket: cfg.bucket,
     Key: key,
-    ContentType: "application/octet-stream",
+    ContentType: contentType,
   });
   return getSignedUrl(c, command, { expiresIn: PRESIGN_TTL_SEC });
+}
+
+export function playbackStorageKey(fileId: string): string {
+  return `obj/${fileId}/playback.mp4`;
+}
+
+export function posterStorageKey(fileId: string): string {
+  return `obj/${fileId}/poster.jpg`;
 }
 
 export async function headObjectContentLength(

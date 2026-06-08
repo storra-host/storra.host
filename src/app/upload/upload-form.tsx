@@ -26,8 +26,8 @@ import {
   generateDataKeyAndIv,
 } from "@/lib/client-file-crypto";
 import { DEFAULT_MAX_FILE_SIZE_BYTES } from "@/lib/file-limits";
-import { captureVideoThumbnail } from "@/lib/video-thumbnail";
 import { pollVideoPlaybackReady } from "@/lib/video-ready";
+import { prepareVideoForUpload } from "@/lib/video-client-prep";
 import { buildFileShareUrl, isVideoFile } from "@/lib/video";
 import { cn } from "@/lib/utils";
 
@@ -107,6 +107,37 @@ function formatMaxForToast(bytes: number): string {
 const E_R2_NET = "__R2_NETWORK__";
 const E_R2_ST0 = "__R2_ST0__";
 const E_R2_HTTP = "__R2_HTTP__:";
+
+async function putBlobToPresigned(
+  url: string,
+  blob: Blob,
+  contentType: string,
+  onProgress?: (pct: number) => void
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", url);
+    xhr.setRequestHeader("Content-Type", contentType);
+    xhr.upload.onprogress = (ev) => {
+      if (ev.lengthComputable && onProgress) {
+        onProgress(Math.round((ev.loaded / ev.total) * 100));
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+        return;
+      }
+      if (xhr.status === 0) {
+        reject(new Error(E_R2_ST0));
+        return;
+      }
+      reject(new Error(`${E_R2_HTTP}${xhr.status}`));
+    };
+    xhr.onerror = () => reject(new Error(E_R2_NET));
+    xhr.send(blob);
+  });
+}
 
 function toastR2DirectUploadError(
   kind:
@@ -249,8 +280,17 @@ export function UploadForm({
         iv: string;
         encryptionMode?: EncryptionMode;
         put: { method: "PUT"; url: string };
+        playbackPut?: { method: "PUT"; url: string };
+        posterPut?: { method: "PUT"; url: string };
       };
       const resolvedMode = pre.encryptionMode ?? encryptionMode;
+      const isVideo = isVideoFile(file.name, file.type || null);
+      const needsClientPrep =
+        isVideo &&
+        resolvedMode === "legacy_server" &&
+        pre.playbackPut &&
+        pre.posterPut;
+
       setProgress(5);
       const fileBuf = await file.arrayBuffer();
       const dataKey = resolvedMode === "e2ee_client" ? localE2EE?.dataKey : pre.dataKey;
@@ -258,21 +298,18 @@ export function UploadForm({
       if (!dataKey || !iv) {
         throw new Error("Upload setup is incomplete. Please retry.");
       }
-      const encBuf = await encryptFileWithDataKey(
-        fileBuf,
-        dataKey,
-        iv
-      );
+      const encBuf = await encryptFileWithDataKey(fileBuf, dataKey, iv);
       setProgress(8);
-      const { fileId } = await new Promise<{
-        fileId: string;
-      }>((resolve, reject) => {
+
+      const uploadEndProgress = needsClientPrep ? 48 : 92;
+      const { fileId } = await new Promise<{ fileId: string }>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open(pre.put.method, pre.put.url);
         xhr.setRequestHeader("Content-Type", "application/octet-stream");
         xhr.upload.onprogress = (ev) => {
           if (ev.lengthComputable) {
-            const p = 8 + Math.round((ev.loaded / ev.total) * 87);
+            const span = uploadEndProgress - 8;
+            const p = 8 + Math.round((ev.loaded / ev.total) * span);
             setProgress(p);
           }
         };
@@ -290,7 +327,46 @@ export function UploadForm({
         xhr.onerror = () => reject(new Error(E_R2_NET));
         xhr.send(new Blob([encBuf]));
       });
-      setProgress(95);
+
+      let posterBlob: Blob | null = null;
+
+      if (needsClientPrep) {
+        setStep("processing");
+        setProgress(50);
+        const prepared = await prepareVideoForUpload(file);
+        posterBlob = prepared.poster;
+        setProgress(62);
+
+        let playbackPct = 0;
+        let posterPct = 0;
+        const syncArtifactProgress = () => {
+          const combined = Math.round((playbackPct + posterPct) / 2);
+          setProgress(62 + Math.round(combined * 0.26));
+        };
+
+        await Promise.all([
+          putBlobToPresigned(
+            pre.playbackPut!.url,
+            prepared.playback,
+            "video/mp4",
+            (pct) => {
+              playbackPct = pct;
+              syncArtifactProgress();
+            }
+          ),
+          putBlobToPresigned(
+            pre.posterPut!.url,
+            prepared.poster,
+            "image/jpeg",
+            (pct) => {
+              posterPct = pct;
+              syncArtifactProgress();
+            }
+          ),
+        ]);
+        setProgress(90);
+      }
+
       const compRes = await fetch("/api/files/upload/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -305,9 +381,17 @@ export function UploadForm({
         );
       }
       await compRes.json();
+
+      if (needsClientPrep) {
+        setProgress(94);
+        const ready = await pollVideoPlaybackReady(fileId);
+        if (!ready.ok) {
+          throw new Error("Video is not stream-ready yet. Please retry the upload.");
+        }
+      }
+
       const origin =
         typeof window !== "undefined" ? window.location.origin : "";
-      const isVideo = isVideoFile(file.name, file.type || null);
       const linkValue = buildFileShareUrl(origin, fileId, {
         isVideo,
         e2eeKey: resolvedMode === "e2ee_client" ? dataKey : null,
@@ -315,25 +399,12 @@ export function UploadForm({
       setLink(linkValue);
       setUploadedFileId(fileId);
 
-      const thumbPromise = isVideo
-        ? captureVideoThumbnail(file).catch(() => null)
-        : Promise.resolve(null);
-
-      if (isVideo && resolvedMode === "legacy_server") {
-        setStep("processing");
-        setProgress(96);
-        const ready = await pollVideoPlaybackReady(fileId, {
-          onStatus: (status) => {
-            if (status === "pending") setProgress(98);
-          },
-        });
-        if (!ready.ok) {
-          toast.error("Video optimization timed out. The link may still need a moment.");
-        }
+      if (posterBlob) {
+        setVideoThumbnail(URL.createObjectURL(posterBlob));
+      } else {
+        setVideoThumbnail(null);
       }
 
-      const thumb = await thumbPromise;
-      setVideoThumbnail(thumb);
       setProgress(100);
       setStep("done");
       toast.success(isVideo ? "Video ready to share" : "Upload complete");
@@ -371,6 +442,9 @@ export function UploadForm({
   };
 
   const again = () => {
+    if (videoThumbnail?.startsWith("blob:")) {
+      URL.revokeObjectURL(videoThumbnail);
+    }
     setFile(null);
     setLink(null);
     setUploadedFileId(null);

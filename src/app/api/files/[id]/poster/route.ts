@@ -18,10 +18,7 @@ export async function GET(
     const ip = getClientKey(request);
     const rl = await checkRateLimit("fileRead", ip);
     if (!rl.allowed) {
-      return NextResponse.json(
-        { error: { code: "rate_limited", message: "Too many requests" } },
-        { status: 429 }
-      );
+      return new NextResponse(null, { status: 429 });
     }
   }
 

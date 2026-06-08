@@ -4,12 +4,7 @@ import type { TranscodeStatus } from "@/lib/video";
 export function isVideoPlaybackReady(meta: PublicFileMeta): boolean {
   if (!meta.isVideo) return true;
   if (meta.encryptionMode === "e2ee_client") return true;
-  if (meta.transcodeStatus === "pending") return false;
-  if (meta.transcodeStatus === "none") return false;
-  if (meta.transcodeStatus === "ready" || meta.transcodeStatus === "skipped") {
-    return true;
-  }
-  return meta.embedSupported;
+  return meta.transcodeStatus === "ready" && meta.hasPoster;
 }
 
 export async function pollVideoPlaybackReady(

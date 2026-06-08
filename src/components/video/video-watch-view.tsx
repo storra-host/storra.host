@@ -373,6 +373,11 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
       ) : (
         <VideoPlayer
           src={src}
+          poster={
+            meta.discordEmbeddable && meta.hasPoster
+              ? `/api/files/${fileId}/poster`
+              : null
+          }
           title={title}
           minimal={minimal}
           className={minimal ? "flex-1 rounded-none" : "w-full shadow-2xl"}

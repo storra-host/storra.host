@@ -31,6 +31,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.11.0",
+    "mp4box": "^2.3.0",
     "nanoid": "^5.1.9",
     "next": "16.2.4",
     "rate-limiter-flexible": "^11.0.1",

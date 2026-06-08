@@ -1,5 +1,9 @@
 import { getSupabase } from "@/lib/supabase";
-import { presignedPutObjectUrl } from "@/lib/r2";
+import {
+  playbackStorageKey,
+  posterStorageKey,
+  presignedPutObjectUrl,
+} from "@/lib/r2";
 import { uploadMetadataSchema } from "@/lib/validation";
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
 import { sanitizeOriginalFilename } from "@/lib/filename-sanitize";
@@ -124,8 +128,20 @@ export async function POST(request: Request) {
   }
 
   let putUrl: string;
+  let playbackPutUrl: string | undefined;
+  let posterPutUrl: string | undefined;
   try {
     putUrl = await presignedPutObjectUrl(storageKey);
+    if (isVideoUpload) {
+      playbackPutUrl = await presignedPutObjectUrl(
+        playbackStorageKey(fileId),
+        "video/mp4"
+      );
+      posterPutUrl = await presignedPutObjectUrl(
+        posterStorageKey(fileId),
+        "image/jpeg"
+      );
+    }
   } catch {
     await supabase.from("files").delete().eq("id", fileId);
     return jsonError(500, "storage", "Could not prepare object storage");
@@ -140,6 +156,12 @@ export async function POST(request: Request) {
       method: "PUT" as const,
       url: putUrl,
     },
+    ...(isVideoUpload && playbackPutUrl && posterPutUrl
+      ? {
+          playbackPut: { method: "PUT" as const, url: playbackPutUrl },
+          posterPut: { method: "PUT" as const, url: posterPutUrl },
+        }
+      : {}),
   };
   if (!isE2EE && dataKey) {
     return NextResponse.json({

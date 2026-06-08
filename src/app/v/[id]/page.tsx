@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { VideoWatchView } from "@/components/video/video-watch-view";
 import { fetchPublicFileMeta } from "@/lib/file-server-meta";
+import { resolveSiteOrigin } from "@/lib/site-origin";
 import {
   buildDiscordWatchTitle,
   canDiscordVideoEmbed,
@@ -13,15 +14,6 @@ type PageProps = {
   searchParams: Promise<{ embed?: string }>;
 };
 
-function siteOrigin(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000")
-  );
-}
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { id } = await params;
   const meta = await fetchPublicFileMeta(id);
@@ -29,16 +21,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: "Video" };
   }
 
-  const siteUrl = siteOrigin();
+  const siteUrl = await resolveSiteOrigin();
   const title = buildDiscordWatchTitle(meta.filename);
   const pageUrl = `${siteUrl}${meta.watchUrl}`;
   const description = `Watch ${meta.filename?.trim() || "video"} on storra.host`;
   const fallbackPoster = `${siteUrl}/banner.png`;
   const embeddable = canDiscordVideoEmbed(meta);
   const streamUrl = embeddable ? discordStreamUrl(siteUrl, id) : undefined;
-  const posterUrl = embeddable && meta.hasPoster
-    ? discordPosterUrl(siteUrl, id)
-    : fallbackPoster;
+  const posterUrl =
+    embeddable && meta.hasPoster
+      ? discordPosterUrl(siteUrl, id)
+      : fallbackPoster;
 
   const videoWidth = 1280;
   const videoHeight = 720;

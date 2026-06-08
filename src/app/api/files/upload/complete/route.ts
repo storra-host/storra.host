@@ -1,6 +1,11 @@
 import { getSupabase } from "@/lib/supabase";
 import { getEnv } from "@/lib/env";
-import { deleteObject, headObjectContentLength } from "@/lib/r2";
+import {
+  deleteObject,
+  headObjectContentLength,
+  playbackStorageKey,
+  posterStorageKey,
+} from "@/lib/r2";
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
 import { AUTH_TAG_LENGTH } from "@/lib/server-crypto";
 import { verifyFinalizeToken } from "@/lib/upload-finalize-token";
@@ -46,7 +51,9 @@ export async function POST(request: Request) {
   const supabase = getSupabase();
   const { data: row, error: fetchErr } = await supabase
     .from("files")
-    .select("id, storage_key, iv, upload_complete, wrapped_file_key, mime_type, filename, encryption_mode")
+    .select(
+      "id, storage_key, iv, upload_complete, wrapped_file_key, mime_type, filename, encryption_mode"
+    )
     .eq("id", fileId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -90,9 +97,52 @@ export async function POST(request: Request) {
     return jsonError(500, "integrity", "Unexpected object size");
   }
 
+  const isVideo = isVideoFile(row.filename, row.mime_type);
+  const isLegacyVideo =
+    isVideo && row.encryption_mode !== "e2ee_client";
+
+  let playbackKey: string | null = null;
+  let posterKey: string | null = null;
+
+  if (isLegacyVideo) {
+    playbackKey = playbackStorageKey(fileId);
+    posterKey = posterStorageKey(fileId);
+    let playbackLen: number | undefined;
+    let posterLen: number | undefined;
+    try {
+      playbackLen = await headObjectContentLength(playbackKey);
+      posterLen = await headObjectContentLength(posterKey);
+    } catch {
+      return jsonError(
+        400,
+        "playback_missing",
+        "Stream-ready playback and poster must be uploaded before finalize."
+      );
+    }
+    if (!playbackLen || playbackLen < 1 || !posterLen || posterLen < 1) {
+      return jsonError(
+        400,
+        "playback_missing",
+        "Stream-ready playback and poster must be uploaded before finalize."
+      );
+    }
+  }
+
+  const updatePayload: Record<string, unknown> = {
+    size: plainSize,
+    upload_complete: true,
+  };
+
+  if (isLegacyVideo && playbackKey && posterKey) {
+    updatePayload.transcoded_storage_key = playbackKey;
+    updatePayload.poster_storage_key = posterKey;
+    updatePayload.playback_mime_type = "video/mp4";
+    updatePayload.transcode_status = "ready";
+  }
+
   const { error: updateErr } = await supabase
     .from("files")
-    .update({ size: plainSize, upload_complete: true })
+    .update(updatePayload)
     .eq("id", fileId)
     .eq("upload_complete", false);
 
@@ -100,10 +150,11 @@ export async function POST(request: Request) {
     return jsonError(500, "db", "Could not finalize upload");
   }
 
-  if (
-    isVideoFile(row.filename, row.mime_type) &&
-    row.encryption_mode !== "e2ee_client"
-  ) {
+  if (isLegacyVideo && playbackKey) {
+    return NextResponse.json({ fileId, playbackReady: true });
+  }
+
+  if (isVideo && row.encryption_mode !== "e2ee_client") {
     scheduleVideoTranscode(fileId);
   }
 

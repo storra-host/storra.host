@@ -111,34 +111,55 @@ export async function runVideoTranscodeIfNeeded(fileId: string): Promise<void> {
 
   try {
     await writeFile(inputPath, plain);
-    await execFileAsync(
-      "ffmpeg",
-      [
-        "-y",
-        "-i",
-        inputPath,
-        "-vf",
-        "scale='min(1920,iw)':-2",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "medium",
-        "-crf",
-        "18",
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "192k",
-        "-movflags",
-        "+faststart",
-        "-f",
-        "mp4",
-        outputPath,
-      ],
-      { timeout: 600_000, maxBuffer: 10 * 1024 * 1024 }
-    );
+
+    const copyArgs = [
+      "-y",
+      "-i",
+      inputPath,
+      "-c",
+      "copy",
+      "-movflags",
+      "+faststart",
+      "-f",
+      "mp4",
+      outputPath,
+    ];
+    const encodeArgs = [
+      "-y",
+      "-i",
+      inputPath,
+      "-vf",
+      "scale='min(1920,iw)':-2",
+      "-c:v",
+      "libx264",
+      "-preset",
+      "medium",
+      "-crf",
+      "17",
+      "-pix_fmt",
+      "yuv420p",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "192k",
+      "-movflags",
+      "+faststart",
+      "-f",
+      "mp4",
+      outputPath,
+    ];
+
+    try {
+      await execFileAsync("ffmpeg", copyArgs, {
+        timeout: 600_000,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+    } catch {
+      await execFileAsync("ffmpeg", encodeArgs, {
+        timeout: 600_000,
+        maxBuffer: 10 * 1024 * 1024,
+      });
+    }
     const out = await readFile(outputPath);
     if (out.length < 1) throw new Error("empty transcode output");
     await putObjectBuffer(transcodedKey, out);

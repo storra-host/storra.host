@@ -1,5 +1,5 @@
 import { getSupabase } from "@/lib/supabase";
-import { getObjectBuffer } from "@/lib/r2";
+import { getObjectBuffer, getObjectWebStream, headObjectContentLength } from "@/lib/r2";
 import { getEnv } from "@/lib/env";
 import { verifyFilePassword } from "@/lib/file-password";
 import { AUTH_TAG_LENGTH, decryptBuffer, getFileDecryptionKey } from "@/lib/server-crypto";
@@ -106,6 +106,90 @@ export type ServeFileOptions = {
   cors?: boolean;
   preferTranscoded?: boolean;
 };
+
+async function servePlaintextFromR2(input: {
+  request: Request;
+  storageKey: string;
+  mime: string;
+  row: FileRow;
+  inline: boolean;
+  preview: boolean;
+  cors: boolean;
+  discordEmbeddable: boolean;
+}): Promise<Response> {
+  const {
+    request,
+    storageKey,
+    mime,
+    row,
+    inline,
+    preview,
+    cors,
+    discordEmbeddable,
+  } = input;
+
+  let totalSize: number;
+  try {
+    const len = await headObjectContentLength(storageKey);
+    if (len == null || len < 1) throw new Error("missing size");
+    totalSize = len;
+  } catch {
+    return withCors(jsonError(500, "storage", "R2 read failed"), cors);
+  }
+
+  const previewCache = discordEmbeddable
+    ? "public, max-age=86400, immutable"
+    : "private, max-age=3600";
+
+  const range = parseRange(request.headers.get("range"), totalSize);
+  if (range === "invalid") {
+    return withCors(
+      new NextResponse(null, {
+        status: 416,
+        headers: {
+          "Content-Range": `bytes */${totalSize}`,
+          ...Object.fromEntries(cors ? Object.entries(corsHeaders()) : []),
+        },
+      }),
+      cors
+    );
+  }
+
+  try {
+    if (range) {
+      const { stream, contentLength } = await getObjectWebStream(storageKey, range);
+      const res = new NextResponse(stream, {
+        status: 206,
+        headers: {
+          "Content-Type": mime,
+          "Content-Length": String(contentLength ?? range.end - range.start + 1),
+          "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`,
+          "Accept-Ranges": "bytes",
+          "Content-Disposition": buildContentDisposition(row, inline),
+          "Cache-Control": preview ? previewCache : "no-store",
+          "X-Encryption-Mode": "legacy_server",
+        },
+      });
+      return withCors(res, cors);
+    }
+
+    const { stream, contentLength } = await getObjectWebStream(storageKey);
+    const res = new NextResponse(stream, {
+      status: 200,
+      headers: {
+        "Content-Type": mime,
+        "Content-Length": String(contentLength ?? totalSize),
+        "Accept-Ranges": "bytes",
+        "Content-Disposition": buildContentDisposition(row, inline),
+        "Cache-Control": preview ? previewCache : "no-store",
+        "X-Encryption-Mode": "legacy_server",
+      },
+    });
+    return withCors(res, cors);
+  } catch {
+    return withCors(jsonError(500, "storage", "R2 read failed"), cors);
+  }
+}
 
 export async function serveFileById(
   request: Request,
@@ -219,55 +303,6 @@ export async function serveFileById(
     after.transcode_status === "ready" &&
     Boolean(after.transcoded_storage_key);
 
-  const storageKey = useTranscoded
-    ? after.transcoded_storage_key!
-    : after.storage_key;
-
-  const maxEnc = getEnv().MAX_FILE_SIZE_BYTES + AUTH_TAG_LENGTH + 64;
-  let encrypted: Buffer;
-  try {
-    encrypted = await getObjectBuffer(storageKey, maxEnc);
-  } catch {
-    if (!preview) {
-      await supabase
-        .from("files")
-        .update({ download_count: file.download_count })
-        .eq("id", id);
-    }
-    return withCors(jsonError(500, "storage", "R2 read failed"), cors);
-  }
-
-  let plain: Buffer;
-  if (useTranscoded) {
-    plain = encrypted;
-  } else {
-    const dataKey = getFileDecryptionKey(after.wrapped_file_key);
-    try {
-      plain = decryptBuffer(encrypted, after.iv, dataKey);
-    } catch {
-      if (!preview) {
-        await supabase
-          .from("files")
-          .update({ download_count: file.download_count })
-          .eq("id", id);
-      }
-      return withCors(jsonError(500, "decrypt", "Could not decrypt file"), cors);
-    }
-    if (Number(after.size) !== plain.length) {
-      if (!preview) {
-        await supabase
-          .from("files")
-          .update({ download_count: file.download_count })
-          .eq("id", id);
-      }
-      return withCors(jsonError(500, "integrity", "Size mismatch"), cors);
-    }
-  }
-
-  const mime = useTranscoded
-    ? after.playback_mime_type || "video/mp4"
-    : after.mime_type || "application/octet-stream";
-
   const transcodeStatus = (after.transcode_status ?? "none") as TranscodeStatus;
   const isVideo = isVideoFile(after.filename, after.mime_type);
   const embedSupported = isEmbedPlaybackSupported({
@@ -285,6 +320,60 @@ export async function serveFileById(
       requiresPassword: Boolean(file.password_key_wrap),
       embedSupported,
     });
+
+  if (useTranscoded) {
+    return servePlaintextFromR2({
+      request,
+      storageKey: after.transcoded_storage_key!,
+      mime: after.playback_mime_type || "video/mp4",
+      row: after,
+      inline,
+      preview,
+      cors,
+      discordEmbeddable,
+    });
+  }
+
+  const storageKey = after.storage_key;
+
+  const maxEnc = getEnv().MAX_FILE_SIZE_BYTES + AUTH_TAG_LENGTH + 64;
+  let encrypted: Buffer;
+  try {
+    encrypted = await getObjectBuffer(storageKey, maxEnc);
+  } catch {
+    if (!preview) {
+      await supabase
+        .from("files")
+        .update({ download_count: file.download_count })
+        .eq("id", id);
+    }
+    return withCors(jsonError(500, "storage", "R2 read failed"), cors);
+  }
+
+  let plain: Buffer;
+  const dataKey = getFileDecryptionKey(after.wrapped_file_key);
+  try {
+    plain = decryptBuffer(encrypted, after.iv, dataKey);
+  } catch {
+    if (!preview) {
+      await supabase
+        .from("files")
+        .update({ download_count: file.download_count })
+        .eq("id", id);
+    }
+    return withCors(jsonError(500, "decrypt", "Could not decrypt file"), cors);
+  }
+  if (Number(after.size) !== plain.length) {
+    if (!preview) {
+      await supabase
+        .from("files")
+        .update({ download_count: file.download_count })
+        .eq("id", id);
+    }
+    return withCors(jsonError(500, "integrity", "Size mismatch"), cors);
+  }
+
+  const mime = after.mime_type || "application/octet-stream";
 
   const previewCache = discordEmbeddable
     ? "public, max-age=86400, immutable"
