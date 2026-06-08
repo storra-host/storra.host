@@ -27,10 +27,11 @@ import {
 } from "@/lib/client-file-crypto";
 import { DEFAULT_MAX_FILE_SIZE_BYTES } from "@/lib/file-limits";
 import { captureVideoThumbnail } from "@/lib/video-thumbnail";
+import { pollVideoPlaybackReady } from "@/lib/video-ready";
 import { buildFileShareUrl, isVideoFile } from "@/lib/video";
 import { cn } from "@/lib/utils";
 
-type Step = "pick" | "upload" | "done";
+type Step = "pick" | "upload" | "processing" | "done";
 type EncryptionMode = "e2ee_client" | "legacy_server";
 
 const expiryOptions = [
@@ -161,6 +162,9 @@ export function UploadForm({
         return;
       }
       setFile(f);
+      if (isVideoFile(f.name, f.type || null)) {
+        setEncryptionMode("legacy_server");
+      }
     },
     [maxFileBytes]
   );
@@ -301,7 +305,6 @@ export function UploadForm({
         );
       }
       await compRes.json();
-      setProgress(100);
       const origin =
         typeof window !== "undefined" ? window.location.origin : "";
       const isVideo = isVideoFile(file.name, file.type || null);
@@ -311,14 +314,29 @@ export function UploadForm({
       });
       setLink(linkValue);
       setUploadedFileId(fileId);
-      if (isVideoFile(file.name, file.type || null)) {
-        const thumb = await captureVideoThumbnail(file);
-        setVideoThumbnail(thumb);
-      } else {
-        setVideoThumbnail(null);
+
+      const thumbPromise = isVideo
+        ? captureVideoThumbnail(file).catch(() => null)
+        : Promise.resolve(null);
+
+      if (isVideo && resolvedMode === "legacy_server") {
+        setStep("processing");
+        setProgress(96);
+        const ready = await pollVideoPlaybackReady(fileId, {
+          onStatus: (status) => {
+            if (status === "pending") setProgress(98);
+          },
+        });
+        if (!ready.ok) {
+          toast.error("Video optimization timed out. The link may still need a moment.");
+        }
       }
+
+      const thumb = await thumbPromise;
+      setVideoThumbnail(thumb);
+      setProgress(100);
       setStep("done");
-      toast.success("Upload complete");
+      toast.success(isVideo ? "Video ready to share" : "Upload complete");
     } catch (e) {
       if (e instanceof Error) {
         if (e.message === E_R2_NET || e.message === E_R2_ST0) {
@@ -375,7 +393,11 @@ export function UploadForm({
       {step === "done" && link ? (
         <div className="flex w-full flex-col items-center space-y-2 text-center">
           <p className="text-xs text-emerald-600 dark:text-emerald-400/90">
-            {copied ? "Copied" : "Upload complete"}
+            {copied
+              ? "Copied"
+              : file && isVideoFile(file.name, file.type || null)
+                ? "Video ready"
+                : "Upload complete"}
           </p>
           {link.includes("#k=") ? (
             <p className="text-[0.65rem] text-amber-700 dark:text-amber-300">
@@ -451,7 +473,7 @@ export function UploadForm({
             tabIndex={-1}
             aria-label="Choose file to upload"
           />
-          {step === "upload" ? (
+          {step === "upload" || step === "processing" ? (
             <div
               className="space-y-2 rounded-lg border border-slate-200/90 bg-slate-100/90 px-3 py-3 dark:border-zinc-700/50 dark:bg-zinc-950/30"
               aria-busy
@@ -459,7 +481,11 @@ export function UploadForm({
               <div className="flex items-center justify-center gap-2">
                 {file ? <FileTypeIcon filename={file.name} /> : null}
                 <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-slate-500 dark:text-zinc-500" />
-                <span className="truncate text-xs text-slate-800 dark:text-zinc-300">{file?.name}</span>
+                <span className="truncate text-xs text-slate-800 dark:text-zinc-300">
+                  {step === "processing"
+                    ? "Optimizing video for playback…"
+                    : file?.name}
+                </span>
               </div>
               <Progress value={progress} className="h-1" />
             </div>
@@ -678,9 +704,17 @@ export function UploadForm({
                           )}
                           onClick={() => setEncryptionMode("legacy_server")}
                         >
-                          Legacy mode: server can decrypt for compatibility.
+                          {file && isVideoFile(file.name, file.type || null)
+                            ? "Streaming mode (recommended for video): instant playback and Discord embeds."
+                            : "Legacy mode: server can decrypt for compatibility."}
                         </button>
                       </div>
+                      {file && isVideoFile(file.name, file.type || null) ? (
+                        <p className="text-[0.65rem] leading-snug text-slate-500 dark:text-zinc-500">
+                          Videos use streaming mode by default so the file is optimized before you share the link.
+                          E2EE videos must download and decrypt in the browser before playing.
+                        </p>
+                      ) : null}
                     </div>
                     <div className="space-y-1">
                       <Label

@@ -8,16 +8,13 @@ import { decryptBuffer, getFileDecryptionKey } from "@/lib/server-crypto";
 import { getObjectBuffer, putObjectBuffer } from "@/lib/r2";
 import { getEnv } from "@/lib/env";
 import { AUTH_TAG_LENGTH } from "@/lib/server-crypto";
-import {
-  isBrowserNativeVideoMime,
-  resolveMimeType,
-  type TranscodeStatus,
-} from "@/lib/video";
+import { type TranscodeStatus } from "@/lib/video";
 
 const execFileAsync = promisify(execFile);
 
+/** Opt-out via ENABLE_VIDEO_TRANSCODE=0; enabled by default for legacy uploads. */
 function transcodeEnabled(): boolean {
-  return process.env.ENABLE_VIDEO_TRANSCODE === "1";
+  return process.env.ENABLE_VIDEO_TRANSCODE !== "0";
 }
 
 async function ffmpegAvailable(): Promise<boolean> {
@@ -30,11 +27,19 @@ async function ffmpegAvailable(): Promise<boolean> {
 }
 
 /**
- * Attempt H.264/AAC MP4 transcode for legacy_server uploads when the source
- * format is not browser-native. Requires ffmpeg on PATH and ENABLE_VIDEO_TRANSCODE=1.
+ * H.264/AAC MP4 transcode for legacy_server video uploads. Applies faststart,
+ * yuv420p, and a 1080p cap so links stream immediately in the browser.
+ * Requires ffmpeg on PATH. Disable with ENABLE_VIDEO_TRANSCODE=0.
  */
 export async function runVideoTranscodeIfNeeded(fileId: string): Promise<void> {
-  if (!transcodeEnabled()) return;
+  if (!transcodeEnabled()) {
+    const supabase = getSupabase();
+    await supabase
+      .from("files")
+      .update({ transcode_status: "skipped" satisfies TranscodeStatus })
+      .eq("id", fileId);
+    return;
+  }
 
   const supabase = getSupabase();
   const { data: row, error } = await supabase
@@ -48,15 +53,6 @@ export async function runVideoTranscodeIfNeeded(fileId: string): Promise<void> {
 
   if (error || !row || !row.upload_complete) return;
   if (row.encryption_mode === "e2ee_client") {
-    await supabase
-      .from("files")
-      .update({ transcode_status: "skipped" satisfies TranscodeStatus })
-      .eq("id", fileId);
-    return;
-  }
-
-  const mime = resolveMimeType(row.filename, row.mime_type);
-  if (isBrowserNativeVideoMime(mime)) {
     await supabase
       .from("files")
       .update({ transcode_status: "skipped" satisfies TranscodeStatus })
@@ -119,14 +115,20 @@ export async function runVideoTranscodeIfNeeded(fileId: string): Promise<void> {
         "-y",
         "-i",
         inputPath,
+        "-vf",
+        "scale='min(1920,iw)':-2",
         "-c:v",
         "libx264",
         "-preset",
-        "fast",
+        "medium",
         "-crf",
-        "23",
+        "18",
+        "-pix_fmt",
+        "yuv420p",
         "-c:a",
         "aac",
+        "-b:a",
+        "192k",
         "-movflags",
         "+faststart",
         "-f",

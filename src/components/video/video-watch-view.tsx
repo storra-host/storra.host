@@ -127,11 +127,23 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
         return;
       }
 
-      setPhase("buffering");
       const headers: HeadersInit = {};
       if (m.requiresPassword && password.trim()) {
         headers["X-Access-Password"] = password.trim();
       }
+
+      const canStreamDirect =
+        m.encryptionMode === "legacy_server" && !m.requiresPassword;
+
+      if (canStreamDirect) {
+        revokeBlob();
+        setSrc(`/api/files/${fileId}?preview=1&inline=1`);
+        setPhase("ready");
+        void recordView();
+        return;
+      }
+
+      setPhase("buffering");
 
       if (m.encryptionMode === "e2ee_client") {
         const key = getKeyFromHash();
@@ -187,13 +199,7 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
         );
         setPhase("ready");
         void recordView();
-        return;
       }
-
-      revokeBlob();
-      setSrc(`/api/files/${fileId}?preview=1&inline=1`);
-      setPhase("ready");
-      void recordView();
     },
     [fileId, recordView, revokeBlob, setBlobSrc]
   );
@@ -220,7 +226,7 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
         clearInterval(t);
         await resolvePlayback(m, accessPassword);
       }
-    }, 4000);
+    }, 2000);
     return () => clearInterval(t);
   }, [meta, loadMeta, resolvePlayback, accessPassword]);
 
@@ -280,8 +286,8 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
 
   if (phase === "loading" || phase === "buffering") {
     return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-2 text-sm text-zinc-500">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      <div className="flex min-h-[50vh] w-full max-w-6xl flex-col items-center justify-center gap-2 text-sm text-zinc-500">
+        <Loader2 className="h-6 w-6 animate-spin" />
         {phase === "buffering" ? "Preparing playback…" : "Loading…"}
       </div>
     );
@@ -297,10 +303,10 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
 
   if (phase === "transcoding") {
     return (
-      <div className="mx-auto max-w-2xl space-y-4 py-8 text-center">
-        <Loader2 className="mx-auto h-6 w-6 animate-spin text-zinc-500" />
+      <div className="mx-auto flex w-full max-w-6xl min-h-[50vh] flex-col items-center justify-center gap-3 py-8 text-center">
+        <Loader2 className="h-7 w-7 animate-spin text-zinc-500" />
         <p className="text-sm text-zinc-400">
-          Converting video for browser playback…
+          Optimizing video for playback…
         </p>
       </div>
     );
@@ -329,13 +335,14 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
   }
 
   const title = meta.filename?.trim() || "Video";
+  const displayTitle = title.replace(/\.[^.]+$/, "");
 
   return (
     <div
       className={
         minimal
           ? "flex h-full min-h-0 w-full flex-col bg-black"
-          : "mx-auto w-full max-w-4xl space-y-4 py-2"
+          : "mx-auto w-full max-w-6xl"
       }
     >
       {phase === "needs_password" ? (
@@ -368,15 +375,15 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
           src={src}
           title={title}
           minimal={minimal}
-          className={minimal ? "flex-1 rounded-none" : undefined}
+          className={minimal ? "flex-1 rounded-none" : "w-full shadow-2xl"}
         />
       )}
 
       {!minimal && phase === "ready" ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/80 pt-4">
+        <div className="mt-4 flex flex-wrap items-start justify-between gap-4 px-1 sm:mt-5">
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-medium tracking-tight text-zinc-100">
-              {title}
+            <h1 className="text-base font-semibold tracking-tight text-zinc-100 sm:text-lg">
+              {displayTitle}
             </h1>
             <p className="mt-1 text-sm text-zinc-500">{formatViews(viewCount)}</p>
           </div>
@@ -384,8 +391,8 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
             <Button
               type="button"
               size="sm"
-              variant="secondary"
-              className="gap-1.5"
+              variant="outline"
+              className="gap-1.5 border-zinc-700 bg-transparent text-zinc-200 hover:bg-zinc-800/80"
               onClick={() => void copyShare()}
             >
               {copied ? (
@@ -398,8 +405,8 @@ export function VideoWatchView({ fileId, minimal = false }: VideoWatchViewProps)
             <Button
               type="button"
               size="sm"
-              variant="outline"
-              className="gap-1.5"
+              variant="ghost"
+              className="gap-1.5 text-zinc-400 hover:text-zinc-200"
               onClick={download}
               disabled={working}
             >
