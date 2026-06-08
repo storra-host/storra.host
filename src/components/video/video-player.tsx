@@ -186,7 +186,7 @@ export function VideoPlayer({
       ref={containerRef}
       className={cn(
         "group relative w-full overflow-hidden bg-black",
-        minimal ? "rounded-none" : "rounded-xl",
+        minimal ? "rounded-none" : "rounded-lg ring-1 ring-inset ring-white/10",
         className
       )}
       onMouseMove={revealControls}
@@ -199,7 +199,7 @@ export function VideoPlayer({
     >
       <video
         ref={videoRef}
-        className="aspect-video h-auto w-full max-h-[min(85vh,calc(100vw*9/16))] bg-black object-contain"
+        className="aspect-video h-auto w-full max-h-[min(72vh,calc((100vw-2.5rem)*9/16))] bg-black object-contain sm:max-h-[min(76vh,calc((100vw-4rem)*9/16))]"
         src={src}
         poster={poster ?? undefined}
         playsInline
@@ -218,16 +218,16 @@ export function VideoPlayer({
         <button
           type="button"
           onClick={togglePlay}
-          className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-transform duration-150 ease-out hover:scale-105"
+          className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white shadow-lg ring-1 ring-white/20 backdrop-blur-sm transition-transform duration-150 ease-out hover:scale-105 sm:h-16 sm:w-16"
           aria-label="Play"
         >
-          <Play className="ml-1 h-7 w-7 fill-current" />
+          <Play className="ml-0.5 h-6 w-6 fill-current sm:ml-1 sm:h-7 sm:w-7" />
         </button>
       ) : null}
 
       <div
         className={cn(
-          "absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-3 pb-3 pt-10 transition-opacity duration-200 ease-out sm:px-4 sm:pb-4",
+          "absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-4 transition-opacity duration-200 ease-out",
           showControls ? "opacity-100" : "pointer-events-none opacity-0"
         )}
       >
@@ -239,7 +239,7 @@ export function VideoPlayer({
           aria-valuemax={duration}
           aria-valuenow={currentTime}
           tabIndex={0}
-          className="group/progress mb-3 h-1.5 cursor-pointer rounded-full bg-white/25"
+          className="group/progress mb-3 h-1 cursor-pointer rounded-full bg-white/20 hover:h-1.5"
           onClick={(e) => seekTo(e.clientX)}
           onKeyDown={(e) => {
             if (e.key === "ArrowLeft") seekBy(-5);
@@ -254,11 +254,11 @@ export function VideoPlayer({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-white sm:gap-3">
+        <div className="flex items-center gap-1.5 text-white sm:gap-2">
           <button
             type="button"
             onClick={togglePlay}
-            className="rounded p-1 transition-colors hover:bg-white/15"
+            className="rounded-md p-1.5 transition-colors hover:bg-white/15"
             aria-label={playing ? "Pause" : "Play"}
           >
             {playing ? (
@@ -271,7 +271,7 @@ export function VideoPlayer({
           <button
             type="button"
             onClick={() => seekBy(-10)}
-            className="hidden rounded p-1 transition-colors hover:bg-white/15 sm:block"
+            className="hidden rounded-md p-1.5 transition-colors hover:bg-white/15 sm:block"
             aria-label="Rewind 10 seconds"
           >
             <RotateCcw className="h-4 w-4" />
@@ -279,7 +279,7 @@ export function VideoPlayer({
           <button
             type="button"
             onClick={() => seekBy(10)}
-            className="hidden rounded p-1 transition-colors hover:bg-white/15 sm:block"
+            className="hidden rounded-md p-1.5 transition-colors hover:bg-white/15 sm:block"
             aria-label="Forward 10 seconds"
           >
             <RotateCw className="h-4 w-4" />
@@ -292,7 +292,7 @@ export function VideoPlayer({
               if (!v) return;
               v.muted = !v.muted;
             }}
-            className="rounded p-1 transition-colors hover:bg-white/15"
+            className="rounded-md p-1.5 transition-colors hover:bg-white/15"
             aria-label={muted ? "Unmute" : "Mute"}
           >
             {muted || volume === 0 ? (
@@ -302,7 +302,7 @@ export function VideoPlayer({
             )}
           </button>
 
-          <span className="min-w-[4.5rem] text-xs tabular-nums text-white/90 sm:text-sm">
+          <span className="min-w-[5.5rem] px-1 text-xs tabular-nums text-white/80 sm:text-sm">
             {formatTime(currentTime)} / {formatTime(duration)}
           </span>
 
@@ -310,9 +310,9 @@ export function VideoPlayer({
             <button
               type="button"
               onClick={() => setShowSpeedMenu((v) => !v)}
-              className="rounded px-2 py-1 text-xs font-medium text-white/90 transition-colors hover:bg-white/15 sm:text-sm"
+              className="rounded-md px-2.5 py-1.5 text-xs font-medium text-white/90 transition-colors hover:bg-white/15 sm:text-sm"
             >
-              {rate === 1 ? "1x" : `${rate}x`}
+              {rate === 1 ? "1×" : `${rate}×`}
             </button>
             {showSpeedMenu ? (
               <div className="absolute bottom-full right-0 mb-2 min-w-[7rem] rounded-lg border border-white/10 bg-zinc-900/95 py-1 shadow-xl backdrop-blur-sm">
@@ -339,7 +339,7 @@ export function VideoPlayer({
           <button
             type="button"
             onClick={() => void toggleFullscreen()}
-            className="rounded p-1 transition-colors hover:bg-white/15"
+            className="rounded-md p-1.5 transition-colors hover:bg-white/15"
             aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
           >
             {isFullscreen ? (

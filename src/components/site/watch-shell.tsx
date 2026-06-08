@@ -11,7 +11,7 @@ export function WatchShell({ children }: { children: React.ReactNode }) {
           storra.host
         </Link>
       </header>
-      <main className="flex min-h-0 flex-1 flex-col items-center px-2 py-3 sm:px-4 sm:py-5">
+      <main className="flex min-h-0 flex-1 flex-col items-center justify-center p-5 sm:p-8">
         {children}
       </main>
     </div>

@@ -47,6 +47,50 @@ export function buildDiscordWatchTitle(filename: string | null): string {
   return `Watch ${display} | storra.host`;
 }
 
+export type VideoStructuredData = {
+  "@context": "https://schema.org";
+  "@type": "VideoObject";
+  name: string;
+  description: string;
+  thumbnailUrl?: string;
+  uploadDate: string;
+  dateModified?: string;
+  contentUrl?: string;
+  expires?: string;
+};
+
+/** JSON-LD VideoObject — Discord reads uploadDate for the embed footer timestamp. */
+export function buildVideoStructuredData(
+  id: string,
+  meta: PublicFileMeta,
+  siteUrl: string
+): VideoStructuredData | null {
+  if (!canDiscordVideoEmbed(meta) || !meta.createdAt) return null;
+
+  const title = buildDiscordWatchTitle(meta.filename);
+  const rawName = meta.filename?.trim() || "video";
+  const data: VideoStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: title,
+    description: `Watch "${rawName}" on storra.host.`,
+    uploadDate: meta.createdAt,
+    dateModified: meta.createdAt,
+  };
+
+  if (canDiscordLinkPreview(meta)) {
+    data.thumbnailUrl = discordPosterUrl(siteUrl, id);
+  }
+  if (canDiscordInlineVideo(meta)) {
+    data.contentUrl = discordStreamUrl(siteUrl, id);
+  }
+  if (meta.expiresAt) {
+    data.expires = meta.expiresAt;
+  }
+
+  return data;
+}
+
 export function buildVideoWatchMetadata(
   id: string,
   meta: PublicFileMeta,
@@ -74,6 +118,9 @@ export function buildVideoWatchMetadata(
       title,
       description,
       url: pageUrl,
+      ...(meta.createdAt
+        ? { publishedTime: meta.createdAt, modifiedTime: meta.createdAt }
+        : {}),
       images: [
         {
           url: posterUrl,

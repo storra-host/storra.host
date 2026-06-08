@@ -30,6 +30,7 @@ export type PublicFileMeta = {
   discordEmbeddable: boolean;
   discordInlineVideo: boolean;
   hasPoster: boolean;
+  createdAt: string | null;
 };
 
 type DbRow = {
@@ -47,6 +48,7 @@ type DbRow = {
   transcode_status?: string | null;
   playback_mime_type?: string | null;
   poster_storage_key?: string | null;
+  created_at?: string | null;
 };
 
 export function toPublicFileMeta(row: DbRow): PublicFileMeta {
@@ -101,6 +103,7 @@ export function toPublicFileMeta(row: DbRow): PublicFileMeta {
     discordEmbeddable,
     discordInlineVideo: false,
     hasPoster: Boolean(row.poster_storage_key),
+    createdAt: row.created_at ?? null,
   };
 
   publicMeta.discordInlineVideo = canDiscordInlineVideo(publicMeta);
