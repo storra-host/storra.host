@@ -69,57 +69,67 @@ export async function POST(request: Request) {
   }
 
   const maxPlain = getEnv().MAX_FILE_SIZE_BYTES;
-  let encLength: number;
-  try {
-    const len = await headObjectContentLength(row.storage_key);
-    if (len == null || len < 1) {
-      throw new Error("missing length");
-    }
-    encLength = len;
-  } catch {
-    return jsonError(400, "not_uploaded", "Object not in storage. Retry upload to R2.");
-  }
-
-  const plainSize = encLength - AUTH_TAG_LENGTH;
-  if (plainSize < 1) {
-    return jsonError(400, "bad_size", "Stored object too small");
-  }
-  if (plainSize > maxPlain) {
-    try {
-      await deleteObject(row.storage_key);
-    } catch {
-    }
-    await supabase.from("files").delete().eq("id", fileId);
-    return jsonError(413, "too_large", "File exceeds max size");
-  }
-
-  if (encLength > maxPlain + AUTH_TAG_LENGTH + 1_048_576) {
-    return jsonError(500, "integrity", "Unexpected object size");
-  }
-
   const isVideo = isVideoFile(row.filename, row.mime_type);
   const isLegacyVideo =
     isVideo && row.encryption_mode !== "e2ee_client";
 
   let playbackKey: string | null = null;
   let posterKey: string | null = null;
+  let playbackLen: number | undefined;
+  let posterLen: number | undefined;
 
   if (isLegacyVideo) {
     playbackKey = playbackStorageKey(fileId);
     posterKey = posterStorageKey(fileId);
-    let playbackLen: number | undefined;
-    let posterLen: number | undefined;
     try {
       playbackLen = await headObjectContentLength(playbackKey);
       posterLen = await headObjectContentLength(posterKey);
     } catch {
-      return jsonError(
-        400,
-        "playback_missing",
-        "Stream-ready playback and poster must be uploaded before finalize."
-      );
+      playbackLen = undefined;
+      posterLen = undefined;
     }
-    if (!playbackLen || playbackLen < 1 || !posterLen || posterLen < 1) {
+  }
+
+  const hasClientPrepArtifacts =
+    Boolean(playbackLen && playbackLen > 0 && posterLen && posterLen > 0);
+
+  let encLength: number | undefined;
+  try {
+    const len = await headObjectContentLength(row.storage_key);
+    if (len != null && len > 0) encLength = len;
+  } catch {
+    encLength = undefined;
+  }
+
+  const clientPrepOnly = isLegacyVideo && hasClientPrepArtifacts && !encLength;
+
+  let plainSize: number;
+  if (clientPrepOnly) {
+    plainSize = playbackLen!;
+    if (plainSize > maxPlain) {
+      await supabase.from("files").delete().eq("id", fileId);
+      return jsonError(413, "too_large", "File exceeds max size");
+    }
+  } else {
+    if (!encLength) {
+      return jsonError(400, "not_uploaded", "Object not in storage. Retry upload to R2.");
+    }
+    plainSize = encLength - AUTH_TAG_LENGTH;
+    if (plainSize < 1) {
+      return jsonError(400, "bad_size", "Stored object too small");
+    }
+    if (plainSize > maxPlain) {
+      try {
+        await deleteObject(row.storage_key);
+      } catch {
+      }
+      await supabase.from("files").delete().eq("id", fileId);
+      return jsonError(413, "too_large", "File exceeds max size");
+    }
+    if (encLength > maxPlain + AUTH_TAG_LENGTH + 1_048_576) {
+      return jsonError(500, "integrity", "Unexpected object size");
+    }
+    if (isLegacyVideo && !hasClientPrepArtifacts) {
       return jsonError(
         400,
         "playback_missing",

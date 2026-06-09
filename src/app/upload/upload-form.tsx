@@ -258,11 +258,17 @@ export function UploadForm({
         metaPayload.accessPassword = pw;
       }
       setProgress(2);
-      const preRes = await fetch("/api/files/upload/prepare", {
+      const isVideo = isVideoFile(file.name, file.type || null);
+      const willClientPrep = isVideo && encryptionMode === "legacy_server";
+
+      const prePromise = fetch("/api/files/upload/prepare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ metadata: JSON.stringify(metaPayload) }),
       });
+      const prepPromise = willClientPrep ? prepareVideoForUpload(file) : null;
+
+      const preRes = await prePromise;
       if (!preRes.ok) {
         const j = (await preRes.json().catch(() => null)) as {
           error?: { message?: string };
@@ -285,64 +291,28 @@ export function UploadForm({
         posterPut?: { method: "PUT"; url: string };
       };
       const resolvedMode = pre.encryptionMode ?? encryptionMode;
-      const isVideo = isVideoFile(file.name, file.type || null);
       const needsClientPrep =
         isVideo &&
         resolvedMode === "legacy_server" &&
         pre.playbackPut &&
         pre.posterPut;
 
-      setProgress(5);
-      const fileBuf = await file.arrayBuffer();
-      const dataKey = resolvedMode === "e2ee_client" ? localE2EE?.dataKey : pre.dataKey;
-      const iv = resolvedMode === "e2ee_client" ? localE2EE?.iv : pre.iv;
-      if (!dataKey || !iv) {
-        throw new Error("Upload setup is incomplete. Please retry.");
-      }
-      const encBuf = await encryptFileWithDataKey(fileBuf, dataKey, iv);
-      setProgress(8);
-
-      const uploadEndProgress = needsClientPrep ? 48 : 92;
-      const { fileId } = await new Promise<{ fileId: string }>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open(pre.put.method, pre.put.url);
-        xhr.setRequestHeader("Content-Type", "application/octet-stream");
-        xhr.upload.onprogress = (ev) => {
-          if (ev.lengthComputable) {
-            const span = uploadEndProgress - 8;
-            const p = 8 + Math.round((ev.loaded / ev.total) * span);
-            setProgress(p);
-          }
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve({ fileId: pre.fileId });
-            return;
-          }
-          if (xhr.status === 0) {
-            reject(new Error(E_R2_ST0));
-            return;
-          }
-          reject(new Error(`${E_R2_HTTP}${xhr.status}`));
-        };
-        xhr.onerror = () => reject(new Error(E_R2_NET));
-        xhr.send(new Blob([encBuf]));
-      });
-
       let posterBlob: Blob | null = null;
+      let fileId = pre.fileId;
 
       if (needsClientPrep) {
         setStep("processing");
-        setProgress(50);
-        const prepared = await prepareVideoForUpload(file);
+        setProgress(willClientPrep ? 12 : 8);
+
+        const prepared = await (prepPromise ?? prepareVideoForUpload(file));
         posterBlob = prepared.poster;
-        setProgress(62);
+        setProgress(28);
 
         let playbackPct = 0;
         let posterPct = 0;
         const syncArtifactProgress = () => {
           const combined = Math.round((playbackPct + posterPct) / 2);
-          setProgress(62 + Math.round(combined * 0.26));
+          setProgress(28 + Math.round(combined * 0.62));
         };
 
         await Promise.all([
@@ -365,7 +335,44 @@ export function UploadForm({
             }
           ),
         ]);
-        setProgress(90);
+        setProgress(92);
+      } else {
+        setProgress(5);
+        const fileBuf = await file.arrayBuffer();
+        const dataKey =
+          resolvedMode === "e2ee_client" ? localE2EE?.dataKey : pre.dataKey;
+        const iv = resolvedMode === "e2ee_client" ? localE2EE?.iv : pre.iv;
+        if (!dataKey || !iv) {
+          throw new Error("Upload setup is incomplete. Please retry.");
+        }
+        const encBuf = await encryptFileWithDataKey(fileBuf, dataKey, iv);
+        setProgress(8);
+
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open(pre.put.method, pre.put.url);
+          xhr.setRequestHeader("Content-Type", "application/octet-stream");
+          xhr.upload.onprogress = (ev) => {
+            if (ev.lengthComputable) {
+              const p = 8 + Math.round((ev.loaded / ev.total) * 84);
+              setProgress(p);
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+              return;
+            }
+            if (xhr.status === 0) {
+              reject(new Error(E_R2_ST0));
+              return;
+            }
+            reject(new Error(`${E_R2_HTTP}${xhr.status}`));
+          };
+          xhr.onerror = () => reject(new Error(E_R2_NET));
+          xhr.send(new Blob([encBuf]));
+        });
+        setProgress(92);
       }
 
       const compRes = await fetch("/api/files/upload/complete", {
@@ -381,9 +388,11 @@ export function UploadForm({
           j?.error?.message ?? `Could not finalize upload (${compRes.status})`
         );
       }
-      await compRes.json();
+      const compBody = (await compRes.json()) as {
+        playbackReady?: boolean;
+      };
 
-      if (needsClientPrep) {
+      if (needsClientPrep && !compBody.playbackReady) {
         setProgress(94);
         const ready = await pollVideoPlaybackReady(fileId);
         if (!ready.ok) {
@@ -393,9 +402,11 @@ export function UploadForm({
 
       const origin =
         typeof window !== "undefined" ? window.location.origin : "";
+      const linkKey =
+        resolvedMode === "e2ee_client" ? localE2EE?.dataKey ?? null : null;
       const linkValue = buildFileShareUrl(origin, fileId, {
         isVideo,
-        e2eeKey: resolvedMode === "e2ee_client" ? dataKey : null,
+        e2eeKey: linkKey,
       });
       setLink(linkValue);
       setUploadedFileId(fileId);
@@ -560,7 +571,7 @@ export function UploadForm({
                 <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-slate-500 dark:text-zinc-500" />
                 <span className="truncate text-xs text-slate-800 dark:text-zinc-300">
                   {step === "processing"
-                    ? "Optimizing video for playback…"
+                    ? "Preparing and uploading video…"
                     : file?.name}
                 </span>
               </div>
