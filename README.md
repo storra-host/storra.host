@@ -40,21 +40,16 @@ Default mode is true E2EE for new uploads: the file key is shared as URL fragmen
 
 1. Create a private bucket and S3 API tokens.
 2. Copy [`.env.example`](./.env.example) to `.env` and fill in `R2_*`. You need either `R2_ENDPOINT` or `R2_ACCOUNT_ID` so the client can reach Cloudflare. For many setups `R2_REGION=auto` is enough; `R2_FORCE_PATH_STYLE` helps with MinIO.
-3. **CORS (required in production):** Browsers send the encrypted `PUT` to your R2 endpoint, which is a different origin than the app. In the Cloudflare dashboard, open the bucket → **Settings** → **CORS policy** and allow your site origin, e.g.:
+3. **CORS (required in production):** Browsers send the encrypted `PUT` to your R2 endpoint, which is a different origin than the app. In the Cloudflare dashboard, open the bucket → **Settings** → **CORS policy** and paste the policy from [`r2-cors.json`](./r2-cors.json) (includes `https://storra.host` and `http://localhost:3000`). For a custom domain, add your origin to `AllowedOrigins`. Set `NEXT_PUBLIC_APP_URL=https://storra.host` in production so metadata and error hints use the correct origin.
 
-```json
-[
-  {
-    "AllowedOrigins": ["https://your-domain.com"],
-    "AllowedMethods": ["PUT", "GET", "HEAD"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
+## Monorepo
 
-Add `http://localhost:3000` to `AllowedOrigins` while developing.
+| App | Path | Domain |
+|-----|------|--------|
+| storra.host (this app) | `/` | `storra.host` |
+| Cloud storage | [`cloud/`](./cloud/) | `cloud.storra.host` |
+
+See [`cloud/README.md`](./cloud/README.md) for deploying the cloud app.
 
 ## Local dev
 

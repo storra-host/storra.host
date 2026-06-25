@@ -93,3 +93,4 @@ temp/
 *.pid.lock
 pids
 *.local
+cloud/scrape-output/

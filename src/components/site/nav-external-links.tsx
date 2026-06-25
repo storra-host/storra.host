@@ -1,5 +1,8 @@
 import { siDiscord, siGithub } from "simple-icons";
 import { cn } from "@/lib/utils";
+import { sanitizeExternalHttpsUrl } from "@/lib/safe-url";
+
+const DEFAULT_CLOUD_URL = "https://cloud.storra.host";
 
 const ghostIcon = cn(
   "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
@@ -32,8 +35,21 @@ function BrandGlyph({ path }: { path: string }) {
 }
 
 export function NavExternalLinks() {
+  const cloudUrl =
+    sanitizeExternalHttpsUrl(process.env.NEXT_PUBLIC_CLOUD_URL) ??
+    DEFAULT_CLOUD_URL;
+
   return (
     <>
+      <a
+        href={cloudUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={ghostText}
+        aria-label="Storra Cloud (opens in a new tab)"
+      >
+        <span>Cloud</span>
+      </a>
       <a
         href="https://ko-fi.com/storrahost"
         target="_blank"

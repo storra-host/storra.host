@@ -153,9 +153,9 @@ function toastR2DirectUploadError(
     return;
   }
   const origin =
-    typeof window !== "undefined" ? window.location.origin : "this app’s URL";
+    typeof window !== "undefined" ? window.location.origin : "https://storra.host";
   toast.error("Browser could not complete upload to R2", {
-    description: `This almost always means the R2 bucket has no CORS rule for your app. In Cloudflare: R2 → the bucket → Settings → CORS. Add an entry with AllowedOrigins including ${origin} (and http://localhost:3000 for local dev), AllowedMethods: PUT, GET, HEAD, AllowedHeaders: *, ExposeHeaders: ETag, MaxAgeSeconds: 3600. See README → R2.`,
+    description: `This almost always means the R2 bucket has no CORS rule for your app. In Cloudflare: R2 → the bucket → Settings → CORS. Paste the policy from r2-cors.json in the repo (includes https://storra.host and http://localhost:3000), or add AllowedOrigins including ${origin}. AllowedMethods: PUT, GET, HEAD. AllowedHeaders: *. ExposeHeaders: ETag. MaxAgeSeconds: 3600. See README → R2.`,
     duration: 18_000,
   });
 }

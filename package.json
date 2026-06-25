@@ -13,7 +13,9 @@
   ],
   "scripts": {
     "dev": "next dev",
+    "dev:cloud": "npm run dev --prefix cloud",
     "build": "next build",
+    "build:cloud": "npm run build --prefix cloud",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"
