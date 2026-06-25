@@ -1,6 +1,6 @@
 # storra.host
 
-Uploads use a **per-file AES-256 key** in the browser; the **browser encrypts** with Web Crypto and **PUTs ciphertext straight to R2** (presigned URL). Only small JSON calls hit the Next.js server—so this works on **Vercel**, which caps request bodies at 4.5 MB. Self-hosted instances can use the same path. Row metadata (expiry, limits, etc.) is in Supabase Postgres. Supabase is not used for file blobs.
+Uploads use a **per-file AES-256 key** in the browser; the **browser encrypts** with Web Crypto and **PUTs ciphertext straight to R2** (presigned URL). Only small JSON calls hit the Next.js server-so this works on **Vercel**, which caps request bodies at 4.5 MB. Self-hosted instances can use the same path. Row metadata (expiry, limits, etc.) is in Supabase Postgres. Supabase is not used for file blobs.
 
 Default mode is true E2EE for new uploads: the file key is shared as URL fragment (`#k=...`), which browsers do not send to the server. The server cannot decrypt these files. A legacy mode is still available for compatibility, where the server can decrypt.
 
@@ -12,7 +12,7 @@ Default mode is true E2EE for new uploads: the file key is shared as URL fragmen
 - Blog at `/blog`, changelog at `/changelog` (copy: [content/changelog.md](./content/changelog.md)).
 - Optional Ko-fi + Discord in the header, optional bug report to Discord if `DISCORD_WEBHOOK_URL` is set, theme toggle.
 - Optional X link in the footer, optional announcement bar.
-- Old `/f/:id` links redirect to `/?f=:id`.
+- Old `/f/:id` and `/?f=:id` links still work (redirect to `/f/:id`).
 
 ## How data is split
 

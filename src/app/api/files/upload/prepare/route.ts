@@ -54,7 +54,7 @@ export async function POST(request: Request) {
   }
   const m = parsed.data;
 
-  const fileId = nanoid(24);
+  const fileId = nanoid(12);
   const storageKey = `obj/${fileId}`;
   const displayNameEarly = sanitizeOriginalFilename(
     m.originalName ?? "upload",

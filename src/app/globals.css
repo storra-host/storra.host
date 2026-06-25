@@ -50,3 +50,65 @@ html.dark body {
   padding: 0.6rem 0.75rem;
   font-size: 13px;
 }
+
+@keyframes ui-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ui-fade-up {
+  animation: ui-fade-up 220ms var(--ease-out-strong) both;
+}
+
+.ui-fade-up-delay-1 {
+  animation-delay: 40ms;
+}
+
+.ui-fade-up-delay-2 {
+  animation-delay: 80ms;
+}
+
+.ui-fade-up-delay-3 {
+  animation-delay: 120ms;
+}
+
+.upload-drop {
+  transition:
+    border-color 200ms var(--ease-out-strong),
+    background-color 200ms var(--ease-out-strong),
+    box-shadow 200ms var(--ease-out-strong);
+}
+
+.upload-drop-icon {
+  transition: transform 200ms var(--ease-out-strong);
+}
+
+.upload-drop--active .upload-drop-icon {
+  transform: scale(1.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-fade-up,
+  .ui-fade-up-delay-1,
+  .ui-fade-up-delay-2,
+  .ui-fade-up-delay-3 {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+
+  .upload-drop,
+  .upload-drop-icon {
+    transition: none;
+  }
+
+  .upload-drop--active .upload-drop-icon {
+    transform: none;
+  }
+}

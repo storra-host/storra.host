@@ -1,4 +1,11 @@
 /** Common video extensions supported for embed detection. */
+import {
+  appendE2eeKeyToUrl as appendE2eeKey,
+  fileSharePath,
+} from "@/lib/e2ee-url";
+
+export { appendE2eeKeyToUrl } from "@/lib/e2ee-url";
+
 export const VIDEO_EXTENSIONS = new Set([
   "mp4",
   "webm",
@@ -125,12 +132,7 @@ export function videoEmbedPath(fileId: string): string {
   return `/e/${fileId}`;
 }
 
-export function appendE2eeKeyToUrl(url: string, dataKey: string | null | undefined): string {
-  if (!dataKey?.trim()) return url;
-  return `${url}#k=${encodeURIComponent(dataKey.trim())}`;
-}
-
-/** One share link: `/v/{id}` for video, `/?f={id}` for everything else. */
+/** One share link: `/v/{id}` for video, `/f/{id}` for everything else. */
 export function buildFileShareUrl(
   origin: string,
   fileId: string,
@@ -138,6 +140,6 @@ export function buildFileShareUrl(
 ): string {
   const base = opts.isVideo
     ? `${origin}${videoWatchPath(fileId)}`
-    : `${origin}/?f=${fileId}`;
-  return appendE2eeKeyToUrl(base, opts.e2eeKey);
+    : `${origin}${fileSharePath(fileId)}`;
+  return appendE2eeKey(base, opts.e2eeKey);
 }

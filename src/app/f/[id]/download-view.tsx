@@ -9,6 +9,7 @@ import { FileTypeIcon } from "@/components/file-type-icon";
 import { Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { decryptFileWithDataKey } from "@/lib/client-file-crypto";
+import { getKeyFromHash } from "@/lib/e2ee-url";
 
 type Meta = {
   id: string;
@@ -46,17 +47,6 @@ function saveBlob(b: Blob, name: string) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 30_000);
-}
-
-function getKeyFromHash(): string | null {
-  if (typeof window === "undefined") return null;
-  const h = window.location.hash.startsWith("#")
-    ? window.location.hash.slice(1)
-    : window.location.hash;
-  if (!h) return null;
-  const p = new URLSearchParams(h);
-  const k = p.get("k")?.trim() ?? "";
-  return k.length > 0 ? k : null;
 }
 
 type DownloadViewProps = {
@@ -225,7 +215,11 @@ export function DownloadView({ fileIdOverride }: DownloadViewProps = {}) {
             Download
           </p>
           <div className="mt-3 flex min-h-[2.5rem] w-full max-w-full items-center justify-center gap-2">
-            <FileTypeIcon filename={forIcon} className="h-5 w-5" />
+            <FileTypeIcon
+              filename={forIcon}
+              mimeType={meta.mimeType}
+              className="h-5 w-5"
+            />
             <span className="min-w-0 max-w-full truncate text-sm font-medium text-zinc-100">
               {displayName}
             </span>

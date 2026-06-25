@@ -19,7 +19,7 @@ export function canDiscordVideoEmbed(meta: {
   );
 }
 
-/** Discord inline player (og:video) — only for videos under the size cap. */
+/** Discord inline player (og:video) - only for videos under the size cap. */
 export function canDiscordInlineVideo(meta: PublicFileMeta): boolean {
   if (!canDiscordVideoEmbed(meta)) return false;
   if (meta.transcodeStatus !== "ready") return false;
@@ -59,7 +59,7 @@ export type VideoStructuredData = {
   expires?: string;
 };
 
-/** JSON-LD VideoObject — Discord reads uploadDate for the embed footer timestamp. */
+/** JSON-LD VideoObject - Discord reads uploadDate for the embed footer timestamp. */
 export function buildVideoStructuredData(
   id: string,
   meta: PublicFileMeta,

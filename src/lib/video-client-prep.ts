@@ -82,7 +82,7 @@ export async function remuxMp4Faststart(file: File): Promise<Blob> {
     mp4boxfile.onReady = () => {
       try {
         mp4boxfile.flush();
-        // getBuffer() — save() triggers an anchor download in the browser.
+        // getBuffer() - save() triggers an anchor download in the browser.
         const stream = mp4boxfile.getBuffer();
         const out = new Blob([stream.buffer], { type: "video/mp4" });
         window.clearTimeout(timeout);

@@ -2,18 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { DownloadView } from "@/app/f/[id]/download-view";
 import { UploadForm } from "@/app/upload/upload-form";
 import { BrandTitle } from "./brand-title";
 import { Loader2 } from "lucide-react";
-import Link from "next/link";
-
-const linkClass =
-  "text-sky-700 underline decoration-sky-500/50 hover:decoration-sky-600 dark:text-sky-400 dark:decoration-sky-500/40";
 
 type SpaHomeProps = { maxFileLabel: string; maxFileBytes: number };
 
-export function SpaHome({ maxFileLabel, maxFileBytes }: SpaHomeProps) {
+export function SpaHome({ maxFileBytes }: SpaHomeProps) {
   const sp = useSearchParams();
   const router = useRouter();
   const f = sp.get("f");
@@ -29,18 +24,19 @@ export function SpaHome({ maxFileLabel, maxFileBytes }: SpaHomeProps) {
       try {
         const r = await fetch(`/api/files/${f}?meta=1`);
         if (!r.ok) {
-          if (!cancelled) setFileReady(true);
+          if (!cancelled) router.replace(`/f/${f}${window.location.hash ?? ""}`);
           return;
         }
         const meta = (await r.json()) as { isVideo?: boolean };
+        const hash = window.location.hash ?? "";
         if (meta.isVideo) {
-          const hash = window.location.hash ?? "";
           router.replace(`/v/${f}${hash}`);
           return;
         }
-        if (!cancelled) setFileReady(true);
+        router.replace(`/f/${f}${hash}`);
+        return;
       } catch {
-        if (!cancelled) setFileReady(true);
+        if (!cancelled) router.replace(`/f/${f}${window.location.hash ?? ""}`);
       }
     })();
     return () => {
@@ -59,34 +55,18 @@ export function SpaHome({ maxFileLabel, maxFileBytes }: SpaHomeProps) {
     );
   }
 
-  if (f) {
-    return (
-      <div className="mx-auto flex w-full max-w-md flex-col items-center space-y-5">
-        <header className="w-full text-center">
-          <BrandTitle />
-        </header>
-        <div className="w-full">
-          <DownloadView fileIdOverride={f} />
-        </div>
-        <p className="text-center text-sm text-slate-500 dark:text-zinc-500">
-          <Link href="/" className={linkClass}>
-            New upload
-          </Link>
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-5">
-      <header className="w-full space-y-1.5 text-center">
+    <div className="mx-auto flex w-full max-w-md flex-col items-center gap-6">
+      <header className="ui-fade-up w-full space-y-1.5 text-center">
         <BrandTitle />
         <p className="text-sm text-slate-500 dark:text-zinc-400">
-          Up to {maxFileLabel} · E2EE by default
+          Encrypted file sharing - drop a file, get a link, done.
         </p>
       </header>
 
-      <UploadForm maxFileBytes={maxFileBytes} />
+      <div className="ui-fade-up ui-fade-up-delay-1 w-full">
+        <UploadForm maxFileBytes={maxFileBytes} />
+      </div>
     </div>
   );
 }

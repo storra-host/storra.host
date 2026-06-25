@@ -1,213 +1,200 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  AppWindow,
-  Binary,
-  Blocks,
-  BookOpen,
-  Disc,
-  Disc3,
-  File,
-  FileArchive,
-  FileAudio,
-  FileCode,
-  FileImage,
-  FileJson,
-  FileSpreadsheet,
-  FileText,
-  FileVideo,
-  FileType2,
-  Package2,
-  Presentation,
-  Smartphone,
-} from "lucide-react";
+import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-type IconInfo = { Icon: LucideIcon; className: string };
+/** SVG paths - same set as cloud.storra.host / cloud dashboard */
+const FILE_ICONS: Record<string, ReactNode> = {
+  EXE: (
+    <>
+      <path
+        stroke="#D5D7DA"
+        strokeWidth="1.5"
+        d="M7.75 4A3.25 3.25 0 0 1 11 .75h16c.121 0 .238.048.323.134l10.793 10.793a.46.46 0 0 1 .134.323v24A3.25 3.25 0 0 1 35 39.25H11A3.25 3.25 0 0 1 7.75 36z"
+      />
+      <path stroke="#D5D7DA" strokeWidth="1.5" d="M27 .5V8a4 4 0 0 0 4 4h7.5" />
+      <rect width="26" height="16" x="1" y="18" fill="#444CE7" rx="2" />
+      <path
+        fill="#fff"
+        d="M4.935 30v-7.273h4.9v1.268H6.472v1.733h3.111v1.268h-3.11v1.736H9.85V30zm7.565-7.273 1.466 2.479h.057l1.474-2.479h1.736l-2.22 3.637L17.284 30h-1.768l-1.492-2.482h-.057L12.475 30h-1.762l2.277-3.636-2.234-3.637zM18.206 30v-7.273h4.9v1.268h-3.362v1.733h3.11v1.268h-3.11v1.736h3.377V30z"
+      />
+    </>
+  ),
+  TXT: (
+    <>
+      <path
+        stroke="#D5D7DA"
+        strokeWidth="1.5"
+        d="M7.75 4A3.25 3.25 0 0 1 11 .75h16c.121 0 .238.048.323.134l10.793 10.793a.46.46 0 0 1 .134.323v24A3.25 3.25 0 0 1 35 39.25H11A3.25 3.25 0 0 1 7.75 36z"
+      />
+      <path stroke="#D5D7DA" strokeWidth="1.5" d="M27 .5V8a4 4 0 0 0 4 4h7.5" />
+      <rect width="27" height="16" x="1" y="18" fill="#475467" rx="2" />
+      <path
+        fill="#fff"
+        d="M4.601 23.995v-1.268h5.973v1.268H8.348V30h-1.52v-6.005zM13 22.727l1.466 2.479h.057l1.474-2.479h1.736l-2.22 3.637L17.784 30h-1.768l-1.492-2.482h-.057L12.975 30h-1.762l2.277-3.636-2.234-3.637zm5.43 1.268v-1.268h5.972v1.268h-2.226V30h-1.52v-6.005z"
+      />
+    </>
+  ),
+  ZIP: (
+    <>
+      <path
+        stroke="#D5D7DA"
+        strokeWidth="1.5"
+        d="M7.75 4A3.25 3.25 0 0 1 11 .75h16c.121 0 .238.048.323.134l10.793 10.793a.46.46 0 0 1 .134.323v24A3.25 3.25 0 0 1 35 39.25H11A3.25 3.25 0 0 1 7.75 36z"
+      />
+      <path stroke="#D5D7DA" strokeWidth="1.5" d="M27 .5V8a4 4 0 0 0 4 4h7.5" />
+      <rect width="22" height="16" x="1" y="18" fill="#344054" rx="2" />
+      <path
+        fill="#fff"
+        d="M4.58 30v-.913l3.63-5.092H4.573v-1.268h5.568v.913L6.51 28.732h3.64V30zm8.286-7.273V30h-1.538v-7.273zM14.131 30v-7.273h2.87q.826 0 1.41.316.58.314.887.87.309.555.309 1.279t-.312 1.278-.906.863q-.59.309-1.428.309h-1.828V26.41h1.58q.444 0 .731-.153.292-.156.434-.43.145-.276.145-.635 0-.363-.145-.632a.97.97 0 0 0-.434-.423q-.291-.153-.738-.153h-1.037V30z"
+      />
+    </>
+  ),
+  DLL: (
+    <>
+      <path
+        stroke="#D5D7DA"
+        strokeWidth="1.5"
+        d="M4.75 4A3.25 3.25 0 0 1 8 .75h16c.121 0 .238.048.323.134l10.793 10.793a.46.46 0 0 1 .134.323v24A3.25 3.25 0 0 1 32 39.25H8A3.25 3.25 0 0 1 4.75 36z"
+      />
+      <path stroke="#D5D7DA" strokeWidth="1.5" d="M24 .5V8a4 4 0 0 0 4 4h7.5" />
+      <path
+        stroke="#6366f1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+        d="M11.9 19.5h16.2m-16.2 3.6h16.2m-16.2 3.6h16.2m-16.2 3.6h12.6"
+      />
+    </>
+  ),
+};
 
-function getIconInfoForExtension(ext: string): IconInfo {
-  const e = ext.toLowerCase();
-
-  if (
-    e === "exe" ||
-    e === "com" ||
-    e === "msi" ||
-    e === "scr" ||
-    e === "pif" ||
-    e === "cpl" ||
-    e === "msix" ||
-    e === "appx" ||
-    e === "ps1" ||
-    e === "vbs" ||
-    e === "wsf"
-  ) {
-    return { Icon: AppWindow, className: "text-sky-500 dark:text-sky-400" };
-  }
-
-  if (e === "bat" || e === "cmd") {
-    return { Icon: Binary, className: "text-slate-500 dark:text-zinc-400" };
-  }
-
-  if (e === "dll" || e === "ocx" || e === "sys" || e === "drv" || e === "efi" || e === "mui") {
-    return { Icon: Package2, className: "text-amber-600 dark:text-amber-400" };
-  }
-
-  if (e === "so" || e === "o" || e === "a" || e === "lib" || e === "obj") {
-    return { Icon: Blocks, className: "text-violet-600 dark:text-violet-400" };
-  }
-
-  if (e === "dylib" || e === "framework") {
-    return { Icon: Blocks, className: "text-fuchsia-600 dark:text-fuchsia-400" };
-  }
-
-  if (e === "dmg" || e === "sparseimage" || e === "sparsebundle") {
-    return { Icon: Disc3, className: "text-rose-500 dark:text-rose-400" };
-  }
-
-  if (e === "pkg" || e === "mpkg") {
-    return { Icon: FileType2, className: "text-rose-500 dark:text-rose-400" };
-  }
-
-  if (e === "iso" || e === "img" || e === "nrg" || e === "cue" || e === "bin" || e === "toast" || e === "uif") {
-    return { Icon: Disc, className: "text-orange-500 dark:text-orange-400" };
-  }
-
-  if (e === "deb" || e === "rpm" || e === "flatpak" || e === "snappy") {
-    return { Icon: FileType2, className: "text-orange-600 dark:text-orange-400" };
-  }
-
-  if (e === "apk" || e === "aab" || e === "xapk") {
-    return { Icon: Smartphone, className: "text-emerald-500 dark:text-emerald-400" };
-  }
-
-  if (e === "ipa" || e === "app") {
-    return { Icon: Smartphone, className: "text-sky-500 dark:text-sky-400" };
-  }
-
-  if (
-    e === "zip" ||
-    e === "rar" ||
-    e === "7z" ||
-    e === "tar" ||
-    e === "gz" ||
-    e === "bz2" ||
-    e === "xz" ||
-    e === "zst" ||
-    e === "zipx" ||
-    e === "cab" ||
-    e === "lzh" ||
-    e === "tgz"
-  ) {
-    return { Icon: FileArchive, className: "text-amber-600 dark:text-amber-400" };
-  }
-
-  if (e === "png" || e === "jpg" || e === "jpeg" || e === "gif" || e === "webp" || e === "bmp" || e === "tiff" || e === "tif" || e === "ico" || e === "heic" || e === "avif" || e === "svg" || e === "raw" || e === "cr2" || e === "nef") {
-    return { Icon: FileImage, className: "text-cyan-600 dark:text-cyan-400" };
-  }
-
-  if (
-    e === "mp4" ||
-    e === "webm" ||
-    e === "avi" ||
-    e === "mkv" ||
-    e === "mov" ||
-    e === "m4v" ||
-    e === "wmv" ||
-    e === "flv" ||
-    e === "ogv" ||
-    e === "3gp" ||
-    e === "ts" ||
-    e === "m2ts" ||
-    e === "f4v"
-  ) {
-    return { Icon: FileVideo, className: "text-fuchsia-600 dark:text-fuchsia-400" };
-  }
-
-  if (
-    e === "mp3" ||
-    e === "wav" ||
-    e === "flac" ||
-    e === "aac" ||
-    e === "m4a" ||
-    e === "ogg" ||
-    e === "opus" ||
-    e === "wma" ||
-    e === "aiff" ||
-    e === "aif" ||
-    e === "mid" ||
-    e === "oga"
-  ) {
-    return { Icon: FileAudio, className: "text-violet-500 dark:text-violet-400" };
-  }
-
-  if (e === "pdf") {
-    return { Icon: FileText, className: "text-red-500 dark:text-red-400" };
-  }
-
-  if (e === "doc" || e === "docx" || e === "odt" || e === "rtf" || e === "epub" || e === "pages" || e === "tex" || e === "wpd" || e === "wps") {
-    return { Icon: BookOpen, className: "text-blue-600 dark:text-blue-400" };
-  }
-
-  if (e === "xls" || e === "xlsx" || e === "ods" || e === "csv" || e === "tsv" || e === "numbers" || e === "nb") {
-    return { Icon: FileSpreadsheet, className: "text-green-600 dark:text-green-400" };
-  }
-
-  if (e === "ppt" || e === "pptx" || e === "odp" || e === "key" || e === "pps" || e === "ppsx") {
-    return { Icon: Presentation, className: "text-amber-600 dark:text-amber-500" };
-  }
-
-  if (e === "md" || e === "txt" || e === "log" || e === "nfo" || e === "cfg" || e === "ini" || e === "license" || e === "readme" || e === "rst") {
-    return { Icon: FileText, className: "text-slate-500 dark:text-zinc-400" };
-  }
-
-  if (e === "html" || e === "htm" || e === "mhtml") {
-    return { Icon: FileCode, className: "text-orange-500 dark:text-orange-400" };
-  }
-
-  if (
-    e === "js" ||
-    e === "mjs" ||
-    e === "cjs" ||
-    e === "ts" ||
-    e === "tsx" ||
-    e === "jsx" ||
-    e === "json" ||
-    e === "json5" ||
-    e === "jsonc"
-  ) {
-    return e === "json" || e === "json5" || e === "jsonc"
-      ? { Icon: FileJson, className: "text-amber-500 dark:text-amber-300" }
-      : { Icon: FileCode, className: "text-blue-500 dark:text-blue-400" };
-  }
-
-  if (e === "rs" || e === "go" || e === "py" || e === "rb" || e === "php" || e === "java" || e === "kt" || e === "swift" || e === "c" || e === "h" || e === "cpp" || e === "hpp" || e === "cc" || e === "cs" || e === "sql" || e === "r" || e === "pl" || e === "sh" || e === "zsh" || e === "bash" || e === "fish" || e === "lua" || e === "ex" || e === "exs" || e === "scala" || e === "clj" || e === "hs" || e === "ml" || e === "elm" || e === "vue" || e === "svelte" || e === "zig" || e === "v" || e === "psm1" || e === "psd1" || e === "dart" || e === "nim" || e === "groovy" || e === "gradle" || e === "cmake" || e === "make" || e === "dockerfile" || e === "toml" || e === "yaml" || e === "yml" || e === "xml" || e === "css" || e === "scss" || e === "sass" || e === "less" || e === "wasm") {
-    return { Icon: FileCode, className: "text-sky-500 dark:text-sky-400" };
-  }
-
-  if (e === "woff" || e === "woff2" || e === "ttf" || e === "otf" || e === "eot" || e === "tff") {
-    return { Icon: FileType2, className: "text-slate-500 dark:text-zinc-400" };
-  }
-
-  return { Icon: File, className: "text-slate-500 dark:text-zinc-500" };
-}
+const DEFAULT_FILE_ICON = (
+  <>
+    <path
+      stroke="#D5D7DA"
+      strokeWidth="1.5"
+      d="M7.75 4A3.25 3.25 0 0 1 11 .75h16c.121 0 .238.048.323.134l10.793 10.793a.46.46 0 0 1 .134.323v24A3.25 3.25 0 0 1 35 39.25H11A3.25 3.25 0 0 1 7.75 36z"
+    />
+    <path stroke="#D5D7DA" strokeWidth="1.5" d="M27 .5V8a4 4 0 0 0 4 4h7.5" />
+    <rect width="26" height="16" x="1" y="18" fill="#475467" rx="2" />
+  </>
+);
 
 function extensionOf(filename: string): string {
   const base = filename.trim();
   if (!base || base === "." || base.endsWith("/") || base.endsWith("\\")) return "";
   const i = base.lastIndexOf(".");
   if (i <= 0 || i === base.length - 1) return "";
-  return base.slice(i + 1);
+  return base.slice(i + 1).toLowerCase();
 }
 
-export function FileTypeIcon({ filename, className }: { filename: string; className?: string }) {
-  const ext = extensionOf(filename);
-  const { Icon, className: tint } = getIconInfoForExtension(ext);
+function iconKeyForExtension(ext: string): keyof typeof FILE_ICONS | null {
+  if (!ext) return null;
+  if (
+    ext === "exe" ||
+    ext === "com" ||
+    ext === "msi" ||
+    ext === "scr" ||
+    ext === "msix" ||
+    ext === "appx" ||
+    ext === "app" ||
+    ext === "dmg" ||
+    ext === "pkg"
+  ) {
+    return "EXE";
+  }
+  if (
+    ext === "txt" ||
+    ext === "md" ||
+    ext === "log" ||
+    ext === "nfo" ||
+    ext === "rst" ||
+    ext === "cfg" ||
+    ext === "ini" ||
+    ext === "readme"
+  ) {
+    return "TXT";
+  }
+  if (
+    ext === "zip" ||
+    ext === "rar" ||
+    ext === "7z" ||
+    ext === "tar" ||
+    ext === "gz" ||
+    ext === "bz2" ||
+    ext === "xz" ||
+    ext === "tgz" ||
+    ext === "zipx" ||
+    ext === "cab"
+  ) {
+    return "ZIP";
+  }
+  if (ext === "dll" || ext === "ocx" || ext === "sys" || ext === "drv" || ext === "so") {
+    return "DLL";
+  }
+  return null;
+}
+
+function ScrapedFileIcon({
+  ext,
+  className,
+}: {
+  ext: string;
+  className?: string;
+}) {
+  const key = iconKeyForExtension(ext);
+  const icon = key ? FILE_ICONS[key] : null;
   return (
-    <span title={ext ? `.${ext}` : "file"} className="inline-flex shrink-0">
-      <Icon
-        className={cn("h-4 w-4", tint, className)}
-        aria-hidden
-        strokeWidth={1.75}
-      />
-    </span>
+    <svg
+      viewBox="0 0 40 40"
+      fill="none"
+      className={cn("h-6 w-6 shrink-0", className)}
+      aria-hidden
+    >
+      {icon ?? DEFAULT_FILE_ICON}
+    </svg>
   );
+}
+
+function ImageThumbnail({
+  alt,
+  src,
+  className,
+}: {
+  alt: string;
+  src: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative shrink-0 overflow-hidden rounded-md border border-slate-200/90 bg-slate-100/80 dark:border-zinc-700/80 dark:bg-zinc-900/50",
+        className
+      )}
+      style={{ width: 24, height: 24 }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img alt={alt} src={src} className="absolute inset-0 h-full w-full object-cover" />
+    </div>
+  );
+}
+
+export function FileTypeIcon({
+  filename,
+  className,
+  mimeType,
+  previewUrl,
+}: {
+  filename: string;
+  className?: string;
+  mimeType?: string | null;
+  previewUrl?: string | null;
+}) {
+  const ext = extensionOf(filename);
+  const mime = mimeType?.trim() ?? "";
+
+  if (mime.startsWith("image/") && previewUrl) {
+    return <ImageThumbnail alt={filename} src={previewUrl} className={className} />;
+  }
+
+  return <ScrapedFileIcon ext={ext} className={className} />;
 }

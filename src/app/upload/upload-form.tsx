@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -18,9 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Check, Copy, Eye, EyeOff, Loader2, Upload, X } from "lucide-react";
+import { Copy, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import { FileTypeIcon } from "@/components/file-type-icon";
+import { UploadDropzone } from "@/components/upload/upload-dropzone";
+import { UploadFileRow } from "@/components/upload/upload-file-row";
+import { UploadProgress } from "@/components/upload/upload-progress";
+import { UploadSuccess } from "@/components/upload/upload-success";
 import {
   encryptFileWithDataKey,
   generateDataKeyAndIv,
@@ -28,7 +30,6 @@ import {
 import { DEFAULT_MAX_FILE_SIZE_BYTES } from "@/lib/file-limits";
 import { pollVideoPlaybackReady } from "@/lib/video-ready";
 import { prepareVideoForUpload } from "@/lib/video-client-prep";
-import { DISCORD_INLINE_VIDEO_MAX_BYTES } from "@/lib/video-embed";
 import { buildFileShareUrl, isVideoFile } from "@/lib/video";
 import { cn } from "@/lib/utils";
 
@@ -184,6 +185,17 @@ export function UploadForm({
   const [accessPassword, setAccessPassword] = useState("");
   const [showAccessPassword, setShowAccessPassword] = useState(false);
   const [encryptionMode, setEncryptionMode] = useState<EncryptionMode>("e2ee_client");
+
+  const imagePreviewUrl = useMemo(() => {
+    if (!file?.type?.startsWith("image/")) return null;
+    return URL.createObjectURL(file);
+  }, [file]);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl);
+    };
+  }, [imagePreviewUrl]);
 
   const applyFile = useCallback(
     (f: File) => {
@@ -477,72 +489,15 @@ export function UploadForm({
   return (
     <div className="mx-auto flex w-full max-w-sm flex-col items-center space-y-3">
       {step === "done" && link ? (
-        <div className="flex w-full flex-col items-center space-y-2 text-center">
-          <p className="text-xs text-emerald-600 dark:text-emerald-400/90">
-            {copied
-              ? "Copied"
-              : file && isVideoFile(file.name, file.type || null)
-                ? "Video ready"
-                : "Upload complete"}
-          </p>
-          {link.includes("#k=") ? (
-            <p className="text-[0.65rem] text-amber-700 dark:text-amber-300">
-              This link contains the decryption key. Share only with trusted recipients.
-            </p>
-          ) : null}
-          {videoThumbnail ? (
-            <div className="w-full overflow-hidden rounded-lg border border-slate-200/90 dark:border-zinc-700/60">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={videoThumbnail}
-                alt="Video preview"
-                className="aspect-video w-full object-cover"
-              />
-            </div>
-          ) : null}
-          <div className="w-full space-y-1 text-left">
-            <label className="text-xs text-slate-600 dark:text-zinc-400">
-              Your link
-            </label>
-            <div className="flex w-full gap-1.5">
-              <Input
-                readOnly
-                value={link}
-                className="h-8 min-w-0 flex-1 font-mono text-xs text-left"
-              />
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="secondary"
-                className="shrink-0"
-                onClick={() => void copy()}
-                aria-label="Copy link"
-              >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-              </Button>
-            </div>
-            {uploadedFileId && file && isVideoFile(file.name, file.type || null) ? (
-              <p className="text-[0.65rem] text-slate-500 dark:text-zinc-500">
-                {file.size > DISCORD_INLINE_VIDEO_MAX_BYTES
-                  ? "Discord shows a thumbnail preview for clips over 50 MB. Shorter clips embed as an inline player."
-                  : "Paste this link in Discord to embed the video inline."}
-              </p>
-            ) : null}
-          </div>
-          <p className="text-center">
-            <button
-              type="button"
-              onClick={again}
-              className="text-xs text-slate-500 hover:text-slate-800 dark:text-zinc-500 dark:hover:text-zinc-300"
-            >
-              Upload another
-            </button>
-          </p>
-        </div>
+        <UploadSuccess
+          link={link}
+          copied={copied}
+          file={file}
+          uploadedFileId={uploadedFileId}
+          videoThumbnail={videoThumbnail}
+          onCopy={() => void copy()}
+          onAgain={again}
+        />
       ) : (
         <form
           className="w-full space-y-2.5"
@@ -562,100 +517,40 @@ export function UploadForm({
             aria-label="Choose file to upload"
           />
           {step === "upload" || step === "processing" ? (
-            <div
-              className="space-y-2 rounded-lg border border-slate-200/90 bg-slate-100/90 px-3 py-3 dark:border-zinc-700/50 dark:bg-zinc-950/30"
-              aria-busy
-            >
-              <div className="flex items-center justify-center gap-2">
-                {file ? <FileTypeIcon filename={file.name} /> : null}
-                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-slate-500 dark:text-zinc-500" />
-                <span className="truncate text-xs text-slate-800 dark:text-zinc-300">
-                  {step === "processing"
+            file ? (
+              <UploadProgress
+                file={file}
+                previewUrl={imagePreviewUrl}
+                label={
+                  step === "processing"
                     ? "Preparing and uploading video…"
-                    : file?.name}
-                </span>
-              </div>
-              <Progress value={progress} className="h-1" />
-            </div>
+                    : file.name
+                }
+                progress={progress}
+              />
+            ) : null
           ) : !file ? (
-            <div
+            <UploadDropzone
+              fileInputId={fileInputId}
+              isDragging={drag}
+              onDragEnter={() => setDrag(true)}
+              onDragLeave={() => setDrag(false)}
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setDrag(true);
               }}
-              onDragEnter={(e) => {
-                e.preventDefault();
-                setDrag(true);
-              }}
-              onDragLeave={() => setDrag(false)}
               onDrop={onDrop}
-              className={cn(
-                "rounded-lg border border-dashed border-slate-300 bg-slate-50/80 transition-[border-color,background-color] duration-150 ease-out dark:border-zinc-600/60 dark:bg-zinc-950/20",
-                drag &&
-                  "border-sky-500/50 bg-sky-50/90 dark:border-zinc-500/80 dark:bg-zinc-900/30"
-              )}
-            >
-              <label
-                htmlFor={fileInputId}
-                tabIndex={0}
-                className="flex cursor-pointer flex-col items-center gap-1.5 px-4 py-5 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-sky-400/50 dark:focus-visible:ring-offset-zinc-950"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    inputRef.current?.click();
-                  }
-                }}
-              >
-                <div className="flex items-center justify-center rounded-full border border-slate-200 bg-white/50 p-2 dark:border-zinc-600/50 dark:bg-transparent">
-                  <Upload className="h-4 w-4 text-slate-500 dark:text-zinc-500" />
-                </div>
-                <p className="text-sm font-medium text-slate-800 dark:text-zinc-200">
-                  Drag & drop a file here
-                </p>
-                <p className="text-xs text-slate-600 dark:text-zinc-500">One file per upload</p>
-                <span
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
-                    "mt-1.5 h-7 text-xs"
-                  )}
-                >
-                  Browse files
-                </span>
-              </label>
-            </div>
+            />
           ) : (
-            <div
-              className="flex items-center justify-between gap-2 rounded-md border border-slate-200/90 bg-slate-50/90 px-2.5 py-1.5 dark:border-zinc-600/50 dark:bg-zinc-950/30"
-            >
-              <div className="flex min-w-0 flex-1 items-center gap-2">
-                <FileTypeIcon filename={file.name} />
-                <p className="min-w-0 flex-1 truncate text-xs text-slate-800 dark:text-zinc-200">
-                  {file.name}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                <label
-                  htmlFor={fileInputId}
-                  className="cursor-pointer text-xs text-sky-600 underline-offset-2 hover:underline dark:text-sky-400/90"
-                >
-                  Change
-                </label>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  className="text-slate-500 hover:text-slate-800 dark:text-zinc-500 dark:hover:text-zinc-300"
-                  aria-label="Remove file"
-                  onClick={() => {
-                    setFile(null);
-                    clearFileInput();
-                  }}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
+            <UploadFileRow
+              file={file}
+              fileInputId={fileInputId}
+              previewUrl={imagePreviewUrl}
+              onRemove={() => {
+                setFile(null);
+                clearFileInput();
+              }}
+            />
           )}
 
           {file && step === "pick" && (

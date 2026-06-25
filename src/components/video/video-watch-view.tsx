@@ -8,6 +8,7 @@ import { VideoPlayer } from "@/components/video/video-player";
 import { decryptFileWithDataKey } from "@/lib/client-file-crypto";
 import type { PublicFileMeta } from "@/lib/file-public-meta";
 import { appendE2eeKeyToUrl } from "@/lib/video";
+import { getKeyFromHash } from "@/lib/e2ee-url";
 import { Check, Copy, Download, Loader2, Share2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -20,17 +21,6 @@ type Phase =
   | "transcoding"
   | "gone"
   | "needs_password";
-
-function getKeyFromHash(): string | null {
-  if (typeof window === "undefined") return null;
-  const h = window.location.hash.startsWith("#")
-    ? window.location.hash.slice(1)
-    : window.location.hash;
-  if (!h) return null;
-  const p = new URLSearchParams(h);
-  const k = p.get("k")?.trim() ?? "";
-  return k.length > 0 ? k : null;
-}
 
 function formatViews(n: number): string {
   if (n === 1) return "1 view";

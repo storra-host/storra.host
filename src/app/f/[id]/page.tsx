@@ -1,5 +1,5 @@
-import { FileIdRedirect } from "./file-redirect-client";
+import { FilePageClient } from "./file-page-client";
 
 export default function FilePage() {
-  return <FileIdRedirect />;
+  return <FilePageClient />;
 }
